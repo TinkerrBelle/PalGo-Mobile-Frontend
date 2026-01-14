@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import Checkbox from "expo-checkbox";
 import API from '../../services/api'; // Adjust the path based on your folder structure
 import CustomInput from '../../components/CustomInput';
+import CustomButton from '../../components/CustomButton';
 
 
 
@@ -111,7 +112,6 @@ export default function CreateAccount() {
                     <CustomInput
                         placeholder="Full Name"
                         placeholderTextColor="#4C4C4C"
-                        className="flex-1 px-4 py-3 text-black dark:text-white text-xs font-nunito-medium"
                         value={name}
                         onChangeText={setName}
                         editable={!loading}
@@ -177,28 +177,7 @@ export default function CreateAccount() {
                         </Text>
                     </View>
 
-                    <View className="items-center">
-                        <ImageBackground source={require('../../assets/images/btn.png')}
-                                         resizeMode="stretch"
-                                         className=""
-                                         style={{width: 258,
-                                             height: 40}}
-                        >
-                            <TouchableOpacity
-                                className="flex-1 items-center justify-center"
-                                disabled={loading}
-                                onPress={handleCreateAccount}>
-                                {loading ? (
-                                    <ActivityIndicator color="#ffffff" size="small" />
-                                ) : (
-                                    <Text className="text-white text-center font-nunito-semibold text-xs">
-                                        SignUp
-                                    </Text>
-                                )}
-                            </TouchableOpacity>
-                        </ImageBackground>
-                    </View>
-
+                    <CustomButton title="SignUp" onPress={handleCreateAccount} loading={loading} />
 
                     <TouchableOpacity
                         onPress={() => router.push("/auth/login")}

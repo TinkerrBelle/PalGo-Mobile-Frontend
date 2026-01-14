@@ -30,16 +30,17 @@ export default function CustomInput({
 
                 <TextInput
                     placeholderTextColor="#4C4C4C"
-                    className="flex-1 px-4 py-3 text-black dark:text-white text-xs font-nunito-medium"
+                    className="flex-1 px-4 py-3 android:py-2.5 text-black dark:text-white text-xs font-nunito-medium"
                     {...textInputProps}
                 />
 
                 {rightIcon && (
                     <TouchableOpacity onPress={onRightIconPress}
-                        className="p-2">
+                        //className="p-2"
+                    >
                         <Image
                             source={rightIcon}
-                            className="w-5 h-5"
+                            //className="w-5 h-5"
                         />
                     </TouchableOpacity>
                 )}
