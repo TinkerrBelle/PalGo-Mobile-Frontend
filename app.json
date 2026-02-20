@@ -7,7 +7,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "palgo",
     "userInterfaceStyle": "light",
-//    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true
@@ -40,7 +39,8 @@
           }
         }
       ],
-      "expo-font"
+      "expo-font",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,

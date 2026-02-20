@@ -135,7 +135,11 @@ export default function CreateAccount() {
                         onChangeText={setPassword}
                         editable={!loading}
                         icon={require('../../assets/images/password_icon.png')}
-                        rightIcon={require('../../assets/images/visibility_off.png')}
+                        rightIcon={
+                            showPassword
+                                ? require('../../assets/images/visibility_off.png')
+                                : require('../../assets/images/visibility.png')
+                        }
                         onRightIconPress={() => setShowPassword(!showPassword)}
                     />
 
@@ -146,7 +150,11 @@ export default function CreateAccount() {
                         onChangeText={setConfirmPassword}
                         editable={!loading}
                         icon={require('../../assets/images/password_icon.png')}
-                        rightIcon={require('../../assets/images/visibility_off.png')}
+                        rightIcon={
+                            showPassword
+                                ? require('../../assets/images/visibility_off.png')
+                                : require('../../assets/images/visibility.png')
+                        }
                         onRightIconPress={() => setShowPasswordConfirm(!showPasswordConfirm)}
                     />
 
