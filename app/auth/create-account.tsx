@@ -1,6 +1,6 @@
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, ImageBackground, Image } from "react-native";
 import { useState } from "react";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import Checkbox from "expo-checkbox";
 import API from '../../services/api'; // Adjust the path based on your folder structure
 import CustomInput from '../../components/CustomInput';
@@ -17,6 +17,7 @@ export default function CreateAccount() {
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
+    const { role } = useLocalSearchParams<{ role: string }>();
 
 
     const handleCreateAccount = async () => {
@@ -51,7 +52,7 @@ export default function CreateAccount() {
                 firstName: firstName,
                 lastName: lastName,
                 phoneNumber: "0000000000", // You'll need to add a phone input field later
-                role: 0 // 0 for Customer, 1 for Runner - you'll need to add role selection
+                role: role === '1' ? 1 : 0  // Use the role from onboarding // 0 for Customer, 1 for Runner - you'll need to add role selection
             });
 
             console.log('Registration successful:', response.data);
@@ -60,7 +61,12 @@ export default function CreateAccount() {
             const { token } = response.data;
 
             alert('Account created successfully!');
-            router.push('/auth/login'); // Or navigate to home screen
+            // Navigate to verify screen, passing the email
+            router.push({
+                pathname: '/auth/verify-email',
+                params: { email: email }
+            });
+            //router.push('/auth/login'); // Or navigate to home screen
 
         } catch (error: any) {
             // BETTER ERROR LOGGING

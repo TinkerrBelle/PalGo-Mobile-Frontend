@@ -53,7 +53,8 @@ function RootLayoutNav(){
                 router.replace('/(tabs)/home');
             } else if (hasSeenOnboarding) {
                 // Seen onboarding before, go straight to login
-                router.replace('/auth/login');
+                //router.replace('/auth/login');
+                router.replace('/');
             } else {
                 // First time user, show onboarding
                 router.replace('/');
@@ -72,6 +73,7 @@ function RootLayoutNav(){
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="auth/login" />
             <Stack.Screen name="auth/create-account" />
+            <Stack.Screen name="auth/verify-email" />
             {/*<Stack.Screen name="index" />*/}
             {/*<Stack.Screen name="auth" />*/}
             {/*<Stack.Screen name="(tabs)" />*/}

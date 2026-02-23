@@ -10,6 +10,8 @@ interface CustomButtonProps {
     backgroundImage?: ImageSourcePropType;
     textClassName?: string;
     title: string;
+    loadingColor?: string;
+    resizeMode?: 'stretch' | 'cover' | 'contain' | 'repeat' | 'center'; // ADD THIS
 }
 
 export default function CustomButton({
@@ -20,13 +22,15 @@ export default function CustomButton({
     width = 258,
     height = 40,
     backgroundImage = require('../assets/images/btn.png'),
-    textClassName = "text-white text-center font-nunito-semibold text-xs",
-                                     }  : CustomButtonProps)
+    loadingColor = "#ffffff",
+     resizeMode = "stretch", // default keeps existing buttons working
+     textClassName = "text-white text-center font-nunito-semibold text-xs",
+     }  : CustomButtonProps)
 {
     return (
         <View className="items-center">
             <ImageBackground source={backgroundImage}
-                             resizeMode="stretch"
+                             resizeMode={resizeMode}
                              style={{width,
                                  height}}
             >
@@ -35,7 +39,7 @@ export default function CustomButton({
                     disabled={loading || disabled}
                     onPress={onPress}>
                     {loading ? (
-                        <ActivityIndicator color="#ffffff" size="small" />
+                        <ActivityIndicator color={loadingColor} size="small" />
                     ) : (
                         <Text className={textClassName}>
                             {title}
