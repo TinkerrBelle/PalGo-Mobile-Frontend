@@ -53,8 +53,8 @@ function RootLayoutNav(){
                 router.replace('/(tabs)/home');
             } else if (hasSeenOnboarding) {
                 // Seen onboarding before, go straight to login
-                //router.replace('/auth/login');
-                router.replace('/');
+                router.replace('/auth/login');
+                //router.replace('/');
             } else {
                 // First time user, show onboarding
                 router.replace('/');

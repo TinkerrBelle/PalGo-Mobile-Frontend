@@ -14,7 +14,8 @@ const getBaseURL = () => {
 const API = axios.create({
     // baseURL: getBaseURL(),
     // baseURL: 'http://10.241.135.93:7036/api',
-    baseURL: 'http://84.8.133.235:5000/api',
+    //baseURL: 'http://84.8.133.235:5000/api',
+    baseURL: 'http://129.151.162.13:5000/api',
     headers: {
         'Content-Type': 'application/json',
     },
