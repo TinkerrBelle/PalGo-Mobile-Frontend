@@ -15,7 +15,7 @@ export default function Login() {
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
 
-    const { login } = useAuth();
+    const { login, user } = useAuth();
 
     const handleLogin = async () => {
         if (!email) {
@@ -35,7 +35,15 @@ export default function Login() {
 
             // Navigate to main app - adjust route as needed
             //router.replace('/(tabs)/home');
-            router.replace('/home');
+            //router.replace('/home');
+            // Route based on role
+            if (user?.role === 'Customer') {
+                router.replace('/(customer)/home');
+            } else if (user?.role === 'Runner') {
+                router.replace('/(pal)/home');
+            } else {
+                router.replace('/(customer)/home'); // fallback
+            }
 
         } catch (error: any) {
             let errorMessage = 'Login failed. Please try again.';

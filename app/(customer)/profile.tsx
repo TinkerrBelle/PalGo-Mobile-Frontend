@@ -1,10 +1,9 @@
-// app/(tabs)/chat.tsx
 import { View, Text } from 'react-native';
 
-export default function ChatScreen() {
+export default function CustomerProfile() {
     return (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <Text>Chat Screen</Text>
+            <Text>Customer Profile</Text>
         </View>
     );
 }

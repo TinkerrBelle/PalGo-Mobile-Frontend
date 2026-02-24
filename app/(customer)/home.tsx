@@ -1,10 +1,9 @@
-// app/(tabs)/errands.tsx
 import { View, Text } from 'react-native';
 
-export default function ErrandsScreen() {
+export default function CustomerHome() {
     return (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <Text>Errands Screen</Text>
+            <Text>Customer Home</Text>
         </View>
     );
 }

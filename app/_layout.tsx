@@ -14,7 +14,7 @@ SplashScreen.preventAutoHideAsync();
 
 function RootLayoutNav(){
     //const { isLoading, isAuthenticated } = useAuth();
-    const { isLoading, isAuthenticated, checkAuth } = useAuth();
+    const { isLoading, isAuthenticated, checkAuth, user } = useAuth();
     const [hasSeenOnboarding, setHasSeenOnboarding] = useState<boolean | null>(null);
 
     useEffect(() => {
@@ -50,7 +50,13 @@ function RootLayoutNav(){
             SplashScreen.hideAsync();
 
             if (isAuthenticated) {
-                router.replace('/(tabs)/home');
+                //router.replace('/(tabs)/home');
+                const role = user?.role;
+                if (role === 'Customer') {
+                    router.replace('/(customer)/home');
+                } else if (role === 'Runner') {
+                    router.replace('/(pal)/home');  // we'll create this next
+                }
             } else if (hasSeenOnboarding) {
                 // Seen onboarding before, go straight to login
                 router.replace('/auth/login');
@@ -70,10 +76,12 @@ function RootLayoutNav(){
         <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="index" />
             <Stack.Screen name="onboarding" />
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            {/*<Stack.Screen name="(tabs)" options={{ headerShown: false }} />*/}
             <Stack.Screen name="auth/login" />
             <Stack.Screen name="auth/create-account" />
             <Stack.Screen name="auth/verify-email" />
+            <Stack.Screen name="(customer)" />
+            <Stack.Screen name="(pal)" />
             {/*<Stack.Screen name="index" />*/}
             {/*<Stack.Screen name="auth" />*/}
             {/*<Stack.Screen name="(tabs)" />*/}
