@@ -50,10 +50,16 @@ export default function Index() {
         await SecureStore.setItemAsync('hasSeenOnboarding', 'true');
 
         if (modalMode === 'signup') {
-            router.push({
-                pathname: '/auth/create-account',
-                params: { role: role.toString() }
-            });
+
+            if (role === 0) {
+                router.push({
+                    pathname: '/auth/create-account',
+                    params: { role: role.toString() }
+                });
+                //router.push('/auth/create-account');         // customer
+            } else {
+                router.push('/auth/create-account-pal');     // pal
+            }
         } else {
             router.push({
                 pathname: '/auth/login',
@@ -233,6 +239,16 @@ export default function Index() {
                             height={61}
                             onPress={() => handleRoleSelect(1)}
                         />
+
+                        <Text style={{
+                            textAlign: 'center',
+                            fontSize: 11,
+                            fontFamily: 'Nunito_400Regular',
+                            color: '#6B7280',
+                            marginBottom: 6,
+                        }}>
+                            Each role requires a separate account
+                        </Text>
                     </View>
                 </View>
             </Modal>

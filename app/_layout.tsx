@@ -82,6 +82,11 @@ function RootLayoutNav(){
             <Stack.Screen name="auth/verify-email" />
             <Stack.Screen name="(customer)" />
             <Stack.Screen name="(pal)" />
+            <Stack.Screen name="auth/create-account-pal" />
+            <Stack.Screen name="auth/verify-phone" />
+            <Stack.Screen name="auth/id-verification" />
+            <Stack.Screen name="auth/occupation" />
+            <Stack.Screen name="auth/pending-approval" />
             {/*<Stack.Screen name="index" />*/}
             {/*<Stack.Screen name="auth" />*/}
             {/*<Stack.Screen name="(tabs)" />*/}

@@ -18,8 +18,8 @@ export default function CustomInput({
             <ImageBackground
                 source={require('../assets/images/input-bg.png')}
                 className="w-full flex-row items-center"
-                imageStyle={{ borderRadius: 28 }}
-                style={{ paddingHorizontal: 24 }}
+                imageStyle={{borderRadius: 28}}
+                style={{paddingHorizontal: 24}}
             >
                 {icon && (
                     <Image

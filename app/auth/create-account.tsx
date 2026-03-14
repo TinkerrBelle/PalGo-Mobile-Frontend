@@ -1,4 +1,15 @@
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, ImageBackground, Image } from "react-native";
+import {
+    View,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    ActivityIndicator,
+    ImageBackground,
+    Image,
+    ScrollView,
+    KeyboardAvoidingView,
+    Platform
+} from "react-native";
 import { useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import Checkbox from "expo-checkbox";
@@ -19,6 +30,18 @@ export default function CreateAccount() {
     const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
     const { role } = useLocalSearchParams<{ role: string }>();
 
+    const validatePassword = (pwd: string): string | null => {
+        if (pwd.length < 8) {
+            return 'Password must be at least 8 characters long';
+        }
+        if (!/[A-Z]/.test(pwd)) {
+            return 'Password must contain at least one uppercase letter';
+        }
+        if (!/[0-9]/.test(pwd)) {
+            return 'Password must contain at least one number';
+        }
+        return null; // null means valid
+    };
 
     const handleCreateAccount = async () => {
         if (!name || !email || !password || !confirmPassword) {
@@ -28,6 +51,12 @@ export default function CreateAccount() {
 
         if (password !== confirmPassword) {
             alert("Passwords do not match");
+            return;
+        }
+
+        const passwordError = validatePassword(password);
+        if (passwordError) {
+            //alert('Weak Password', passwordError);
             return;
         }
 
@@ -107,105 +136,120 @@ export default function CreateAccount() {
                 <Image source={require('../../assets/images/bckg_drip_C.png')}
                     resizeMode="contain"
                 />
-                <View className="flex-1 px-8 pt-8">
-                    <Text className="text-3xl font-nunito-bold text-black dark:text-white mb-2 text-center">
-                        Create Account
-                    </Text>
-
-                    <Text className="text-accent-100 text-center text-xs font-nunito-medium pb-8"
-                    >Create a new account to get started and enjoy seamless access to our features.</Text>
-
-                    <CustomInput
-                        placeholder="Full Name"
-                        placeholderTextColor="#4C4C4C"
-                        value={name}
-                        onChangeText={setName}
-                        editable={!loading}
-                        icon={require('../../assets/images/user_icon.png')}
-                    />
-
-                    <CustomInput
-                        placeholder="Email Address"
-                        value={email}
-                        onChangeText={setEmail}
-                        editable={!loading}
-                        autoCapitalize="none"
-                        keyboardType="email-address"
-                        icon={require('../../assets/images/mail.png')}
-                    />
-
-                    <CustomInput
-                        placeholder="Password"
-                        secureTextEntry={!showPassword}
-                        value={password}
-                        onChangeText={setPassword}
-                        editable={!loading}
-                        icon={require('../../assets/images/password_icon.png')}
-                        rightIcon={
-                            showPassword
-                                ? require('../../assets/images/visibility_off.png')
-                                : require('../../assets/images/visibility.png')
-                        }
-                        onRightIconPress={() => setShowPassword(!showPassword)}
-                    />
-
-                    <CustomInput
-                        placeholder="Confirm Password"
-                        secureTextEntry={!showPasswordConfirm}
-                        value={confirmPassword}
-                        onChangeText={setConfirmPassword}
-                        editable={!loading}
-                        icon={require('../../assets/images/password_icon.png')}
-                        rightIcon={
-                            showPassword
-                                ? require('../../assets/images/visibility_off.png')
-                                : require('../../assets/images/visibility.png')
-                        }
-                        onRightIconPress={() => setShowPasswordConfirm(!showPasswordConfirm)}
-                    />
-
-
-                    <View className="flex-row items-center mb-14 mt-2" >
-                        <Checkbox
-                            value={agreed}
-                            onValueChange={setAgreed}
-                            color={agreed ? "#2563eb" : undefined}
-                            disabled={loading}
-                        />
-
-                        <Text className="text-accent-100 dark:text-gray-400 text-xs font-nunito-medium ml-3 flex-1 ">
-                            I agree to the{" "}
-                            <Text
-                                //onPress={() => router.push("/terms")}
-                                className="text-blue-600 font-nunito underline"
-                            >
-                                Terms & Conditions
-                            </Text>
-                            {" "}and{" "}
-                            <Text
-                                //onPress={() => router.push("/privacy")}
-                                className="text-blue-600 font-nunito underline"
-                            >
-                                Privacy Policy
-                            </Text>
-                        </Text>
-                    </View>
-
-                    <CustomButton title="SignUp" onPress={handleCreateAccount} loading={loading} />
-
-                    <TouchableOpacity
-                        onPress={() => router.push("/auth/login")}
-                        className="mt-6"
-                        disabled={loading}
+                {/* ADD KeyboardAvoidingView wrapping the ScrollView */}
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    style={{ flex: 1 }}
+                >
+                    <ScrollView
+                        // contentContainerStyle={{
+                        //     paddingHorizontal: 32,
+                        //     paddingTop: 16,
+                        //     paddingBottom: 80,   // plenty of space at bottom
+                        // }}
+                        showsVerticalScrollIndicator={false}
                     >
-                        <View className="flex-row justify-center">
-                            <Text className="text-center text-accent-100 text-xs font-nunito-medium ">
-                                Have an account? </Text>
-                            <Text className="text-center text-primary text-xs font-nunito-bold ml-0.5 ">
-                                Sign In Here</Text>
+                        <View className="flex-1 px-8 pt-8">
+                            <Text className="text-3xl font-nunito-bold text-black dark:text-white mb-2 text-center">
+                                Create Account
+                            </Text>
+
+                            <Text className="text-accent-100 text-center text-xs font-nunito-medium pb-8"
+                            >Create a new account to get started and enjoy seamless access to our features.</Text>
+
+                            <CustomInput
+                                placeholder="Full Name"
+                                placeholderTextColor="#4C4C4C"
+                                value={name}
+                                onChangeText={setName}
+                                editable={!loading}
+                                icon={require('../../assets/images/user_icon.png')}
+                            />
+
+                            <CustomInput
+                                placeholder="Email Address"
+                                value={email}
+                                onChangeText={setEmail}
+                                editable={!loading}
+                                autoCapitalize="none"
+                                keyboardType="email-address"
+                                icon={require('../../assets/images/mail.png')}
+                            />
+
+                            <CustomInput
+                                placeholder="Password"
+                                secureTextEntry={!showPassword}
+                                value={password}
+                                onChangeText={setPassword}
+                                editable={!loading}
+                                icon={require('../../assets/images/password_icon.png')}
+                                rightIcon={
+                                    showPassword
+                                        ? require('../../assets/images/visibility_off.png')
+                                        : require('../../assets/images/visibility.png')
+                                }
+                                onRightIconPress={() => setShowPassword(!showPassword)}
+                            />
+
+                            <CustomInput
+                                placeholder="Confirm Password"
+                                secureTextEntry={!showPasswordConfirm}
+                                value={confirmPassword}
+                                onChangeText={setConfirmPassword}
+                                editable={!loading}
+                                icon={require('../../assets/images/password_icon.png')}
+                                rightIcon={
+                                    showPassword
+                                        ? require('../../assets/images/visibility_off.png')
+                                        : require('../../assets/images/visibility.png')
+                                }
+                                onRightIconPress={() => setShowPasswordConfirm(!showPasswordConfirm)}
+                            />
+
+
+                            <View className="flex-row items-center mb-14 mt-2" >
+                                <Checkbox
+                                    value={agreed}
+                                    onValueChange={setAgreed}
+                                    color={agreed ? "#2563eb" : undefined}
+                                    disabled={loading}
+                                />
+
+                                <Text className="text-accent-100 dark:text-gray-400 text-xs font-nunito-medium ml-3 flex-1 ">
+                                    I agree to the{" "}
+                                    <Text
+                                        //onPress={() => router.push("/terms")}
+                                        className="text-blue-600 font-nunito underline"
+                                    >
+                                        Terms & Conditions
+                                    </Text>
+                                    {" "}and{" "}
+                                    <Text
+                                        //onPress={() => router.push("/privacy")}
+                                        className="text-blue-600 font-nunito underline"
+                                    >
+                                        Privacy Policy
+                                    </Text>
+                                </Text>
+                            </View>
+
+                            <CustomButton title="SignUp" onPress={handleCreateAccount} loading={loading} />
+
+                            <TouchableOpacity
+                                onPress={() => router.push("/auth/login")}
+                                className="mt-6"
+                                disabled={loading}
+                            >
+                                <View className="flex-row justify-center">
+                                    <Text className="text-center text-accent-100 text-xs font-nunito-medium ">
+                                        Have an account? </Text>
+                                    <Text className="text-center text-primary text-xs font-nunito-bold ml-0.5 ">
+                                        Sign In Here</Text>
+                                </View>
+                            </TouchableOpacity>
                         </View>
-                    </TouchableOpacity>
-                </View>
+                    </ScrollView>
+                </KeyboardAvoidingView>
             </ImageBackground>
         </View>
     );

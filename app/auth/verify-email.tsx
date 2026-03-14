@@ -1,11 +1,20 @@
-import { View, Text, TextInput, TouchableOpacity, ImageBackground, Image, Alert, Modal } from "react-native";
+import {
+    View, Text, TextInput, TouchableOpacity, ImageBackground, Image, Alert, Modal, ScrollView, KeyboardAvoidingView,
+    Platform
+} from "react-native";
 import { useState, useRef } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import API from '../../services/api';
 import CustomButton from '../../components/CustomButton';
 
 export default function VerifyEmail() {
-    const { email } = useLocalSearchParams<{ email: string }>();
+    // const { email } = useLocalSearchParams<{ email: string }>();
+    const { email, userId, nextScreen, phone } = useLocalSearchParams<{
+        email: string;
+        userId: string;
+        nextScreen?: string;
+        phone?: string;
+    }>();
     const [code, setCode] = useState(['', '', '', '']);
     const [loading, setLoading] = useState(false);
     const [resending, setResending] = useState(false);
@@ -78,7 +87,16 @@ export default function VerifyEmail() {
 
     const handleLogin = () => {
         setShowSuccessModal(false);
-        router.replace('/auth/login');
+
+        if (nextScreen === 'verify-phone') {
+            // Pal flow — go to phone verification
+            router.replace({
+                pathname: '/auth/verify-phone',
+                params: { email, userId, phone }
+            });
+        } else {
+            router.replace('/auth/login');
+        }
     };
 
     return (
@@ -91,79 +109,94 @@ export default function VerifyEmail() {
                     source={require('../../assets/images/bckg_drip_C.png')}
                     resizeMode="contain"
                 />
-                <View className="flex-1 px-8 pt-8">
-                    <Text className="text-3xl font-nunito-bold text-black mb-2 text-center">
-                        Verify Email
-                    </Text>
-
-                    <Text className="text-accent-100 text-center text-xs font-nunito-medium pb-8">
-                        Please check your inbox & enter the verification code we just sent to{' '}
-                        <Text className="font-nunito-bold text-black">{email}</Text>
-                    </Text>
-
-                    {/* 4 circular digit inputs */}
-                    <View className="flex-row justify-center gap-4 mb-8">
-                        {code.map((digit, index) => (
-                            <ImageBackground
-                                key={index}
-                                source={require('../../assets/images/input-bg-circle.png')}
-                                imageStyle={{
-                                    borderRadius: 32,
-                                    borderWidth: 2,
-                                    borderColor: activeIndex === index ? '#10B981' : 'transparent',
-                                }}
-                                style={{
-                                    width: 64,
-                                    height: 64,
-                                    justifyContent: 'center',
-                                    alignItems: 'center',
-                                }}
-                            >
-                                <TextInput
-                                    ref={inputRefs[index]}
-                                    value={digit}
-                                    onChangeText={(text) => handleCodeChange(text, index)}
-                                    onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, index)}
-                                    onFocus={() => setActiveIndex(index)}
-                                    onBlur={() => setActiveIndex(null)}
-                                    keyboardType="numeric"
-                                    maxLength={1}
-                                    editable={!loading}
-                                    placeholderTextColor="#4C4C4C"
-                                    style={{
-                                        width: '100%',
-                                        height: '100%',
-                                        textAlign: 'center',
-                                        fontSize: 24,
-                                        fontWeight: 'bold',
-                                        color: '#111827',
-                                    }}
-                                />
-                            </ImageBackground>
-                        ))}
-                    </View>
-
-                    <CustomButton
-                        title="Verify"
-                        onPress={handleVerify}
-                        loading={loading}
-                    />
-
-                    <TouchableOpacity
-                        onPress={handleResend}
-                        disabled={resending || loading}
-                        className="mt-6"
+                {/* ADD KeyboardAvoidingView wrapping the ScrollView */}
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    style={{ flex: 1 }}
+                >
+                    <ScrollView
+                        // contentContainerStyle={{
+                        //     paddingHorizontal: 32,
+                        //     paddingTop: 16,
+                        //     paddingBottom: 80,   // plenty of space at bottom
+                        // }}
+                        showsVerticalScrollIndicator={false}
                     >
-                        <View className="flex-row justify-center">
-                            <Text className="text-center text-accent-100 text-xs font-nunito-medium">
-                                Didn't receive a code?{' '}
+                        <View className="flex-1 px-8 pt-8">
+                            <Text className="text-3xl font-nunito-bold text-black mb-2 text-center">
+                                Verify Email
                             </Text>
-                            <Text className="text-primary text-xs font-nunito-bold">
-                                {resending ? 'Sending...' : 'Resend'}
+
+                            <Text className="text-accent-100 text-center text-xs font-nunito-medium pb-8">
+                                Please check your inbox & enter the verification code we just sent to{' '}
+                                <Text className="font-nunito-bold text-black">{email}</Text>
                             </Text>
+
+                            {/* 4 circular digit inputs */}
+                            <View className="flex-row justify-center gap-4 mb-8">
+                                {code.map((digit, index) => (
+                                    <ImageBackground
+                                        key={index}
+                                        source={require('../../assets/images/input-bg-circle.png')}
+                                        imageStyle={{
+                                            borderRadius: 32,
+                                            borderWidth: 2,
+                                            borderColor: activeIndex === index ? '#10B981' : 'transparent',
+                                        }}
+                                        style={{
+                                            width: 64,
+                                            height: 64,
+                                            justifyContent: 'center',
+                                            alignItems: 'center',
+                                        }}
+                                    >
+                                        <TextInput
+                                            ref={inputRefs[index]}
+                                            value={digit}
+                                            onChangeText={(text) => handleCodeChange(text, index)}
+                                            onKeyPress={({ nativeEvent }) => handleKeyPress(nativeEvent.key, index)}
+                                            onFocus={() => setActiveIndex(index)}
+                                            onBlur={() => setActiveIndex(null)}
+                                            keyboardType="numeric"
+                                            maxLength={1}
+                                            editable={!loading}
+                                            placeholderTextColor="#4C4C4C"
+                                            style={{
+                                                width: '100%',
+                                                height: '100%',
+                                                textAlign: 'center',
+                                                fontSize: 24,
+                                                fontWeight: 'bold',
+                                                color: '#111827',
+                                            }}
+                                        />
+                                    </ImageBackground>
+                                ))}
+                            </View>
+
+                            <CustomButton
+                                title="Verify"
+                                onPress={handleVerify}
+                                loading={loading}
+                            />
+
+                            <TouchableOpacity
+                                onPress={handleResend}
+                                disabled={resending || loading}
+                                className="mt-6"
+                            >
+                                <View className="flex-row justify-center">
+                                    <Text className="text-center text-accent-100 text-xs font-nunito-medium">
+                                        Didn't receive a code?{' '}
+                                    </Text>
+                                    <Text className="text-primary text-xs font-nunito-bold">
+                                        {resending ? 'Sending...' : 'Resend'}
+                                    </Text>
+                                </View>
+                            </TouchableOpacity>
                         </View>
-                    </TouchableOpacity>
-                </View>
+                    </ScrollView>
+                </KeyboardAvoidingView>
             </ImageBackground>
 
             {/* Success Modal */}
