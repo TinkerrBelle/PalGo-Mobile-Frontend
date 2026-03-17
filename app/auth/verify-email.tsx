@@ -244,7 +244,7 @@ export default function VerifyEmail() {
                     {/* Login button OUTSIDE the white box, below it */}
                     <View style={{ width: '100%', marginTop: 34 }}>
                         <CustomButton
-                            title="Login"
+                            title={nextScreen === 'verify-phone' ? "Continue" : "Login"}
                             onPress={handleLogin}
                             loading={loading}
                         />
