@@ -174,6 +174,33 @@ export default function Login() {
                             }}>
                                 <Text>Reset App State (DEV ONLY)</Text>
                             </TouchableOpacity>
+
+                                <View style={{ marginTop: 16, gap: 8 }}>
+                                    <Text style={{ textAlign: 'center', fontSize: 10, color: '#9CA3AF' }}>
+                                        DEV SHORTCUTS
+                                    </Text>
+                                    <TouchableOpacity onPress={() => router.push({
+                                        pathname: '/auth/id-verification',
+                                        params: { userId: 'test-user-id', email: 'test@test.com' }
+                                    })}>
+                                        <Text style={{ textAlign: 'center', fontSize: 11, color: '#EF4444' }}>
+                                            → ID Verification
+                                        </Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity onPress={() => router.push({
+                                        pathname: '/auth/occupation',
+                                        params: { userId: 'test-user-id', email: 'test@test.com' }
+                                    })}>
+                                        <Text style={{ textAlign: 'center', fontSize: 11, color: '#EF4444' }}>
+                                            → Occupation
+                                        </Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity onPress={() => router.push('/auth/pending-approval')}>
+                                        <Text style={{ textAlign: 'center', fontSize: 11, color: '#EF4444' }}>
+                                            → Pending Approval
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
                         </View>
                     </ScrollView>
                 </KeyboardAvoidingView>

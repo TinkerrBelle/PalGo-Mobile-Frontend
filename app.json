@@ -39,6 +39,13 @@
           }
         }
       ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "PalGo needs access to your photos to upload your profile picture and ID document.",
+          "cameraPermission": "PalGo needs camera access to take your profile picture and scan your ID document."
+        }
+      ],
       "expo-font",
       "expo-secure-store",
       "@react-native-community/datetimepicker"
