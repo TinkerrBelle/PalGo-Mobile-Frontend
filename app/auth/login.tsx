@@ -164,7 +164,7 @@ export default function Login() {
                                 </View>
                             </TouchableOpacity>
 
-                            // Add a button temporarily just for testing:
+                            {/* Add a button temporarily just for testing: */}
                             <TouchableOpacity onPress={async () => {
                                 await SecureStore.deleteItemAsync('hasSeenOnboarding');
                                 await SecureStore.deleteItemAsync('rememberMe');
