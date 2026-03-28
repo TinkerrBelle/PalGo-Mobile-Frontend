@@ -73,6 +73,8 @@ export default function VerifyPhone() {
     };
 
     const handleVerify = async () => {
+        if (loading) return;  // ADD — blocks while already verifying
+
         const fullCode = code.join('');
 
         if (fullCode.length !== 6) {

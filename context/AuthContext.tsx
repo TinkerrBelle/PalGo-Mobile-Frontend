@@ -10,6 +10,7 @@ interface User {
     firstName: string;
     lastName: string;
     role: string;
+    palStatus?: string;  // ADD THIS
 }
 
 interface AuthContextType {

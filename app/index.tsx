@@ -27,7 +27,7 @@ const slides = [
 export default function Index() {
     const [currentSlide, setCurrentSlide] = useState(0);
     const [modalVisible, setModalVisible] = useState(false);
-    const [modalMode, setModalMode] = useState<'signup' | 'login'>('signup');
+    //const [modalMode, setModalMode] = useState<'signup' | 'login'>('signup');
     const flatListRef = useRef<FlatList>(null);
 
     const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -36,20 +36,23 @@ export default function Index() {
     };
 
     const handleSignUpPress = () => {
-        setModalMode('signup');
+        //setModalMode('signup');
         setModalVisible(true);
     };
 
-    const handleLoginPress = () => {
-        setModalMode('login');
-        setModalVisible(true);
+    const handleLoginPress = async () => {
+        setModalVisible(false);
+        await SecureStore.setItemAsync('hasSeenOnboarding', 'true');
+        router.push('/auth/login');
+        //setModalMode('login');
+        //setModalVisible(true);
     };
 
     const handleRoleSelect = async (role: 0 | 1) => {
         setModalVisible(false);
         await SecureStore.setItemAsync('hasSeenOnboarding', 'true');
 
-        if (modalMode === 'signup') {
+        //if (modalMode === 'signup') {
 
             if (role === 0) {
                 router.push({
@@ -60,12 +63,12 @@ export default function Index() {
             } else {
                 router.push('/auth/create-account-pal');     // pal
             }
-        } else {
-            router.push({
-                pathname: '/auth/login',
-                params: { role: role.toString() }
-            });
-        }
+        //} else {
+          //  router.push({
+            //    pathname: '/auth/login',
+            //    params: { role: role.toString() }
+          //  });
+        //}
     };
 
     // Inside your component, after your existing state:

@@ -64,16 +64,19 @@ export default function IdVerification() {
                 else clearInterval(progressInterval);
             }, 200);
 
+            console.log(`Uploading to ${endpoint}...`);  // ADD
             const response = await API.post(endpoint, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
 
             clearInterval(progressInterval);
+            console.log(`Upload response:`, response.data);  // ADD
             onProgress?.(100);
             setUrl(response.data.url);
             onComplete?.();
-        } catch (error) {
+        } catch (error: any) {
             onProgress?.(0);
+            console.log('Upload error:', error.response?.status, error.response?.data, error.message);
             Alert.alert('Upload Failed', 'Could not upload image. Please try again.');
         } finally {
             setUploading(false);
@@ -188,6 +191,10 @@ export default function IdVerification() {
 
     // ── SUBMIT ───────────────────────────────────────────────
     const handleNext = async () => {
+        // ADD these logs
+        console.log('profileImageUrl:', profileImageUrl);
+        console.log('idDocUrl:', idDocUrl);
+        console.log('userId:', userId);
         if (!profileImageUrl) {
             Alert.alert('Error', 'Please upload a profile picture');
             return;

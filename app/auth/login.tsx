@@ -41,7 +41,14 @@ export default function Login() {
             if (user?.role === 'Customer') {
                 router.replace('/(customer)/home');
             } else if (user?.role === 'Runner') {
-                router.replace('/(pal)/home');
+                //router.replace('/(pal)/home');
+                if (user?.palStatus === 'Approved') {
+                    router.replace('/(pal)/home');
+                } else if (user?.palStatus === 'Rejected') {
+                    router.replace('/auth/rejected');
+                } else {
+                    router.replace('/auth/pending-approval');
+                }
             } else {
                 router.replace('/(customer)/home'); // fallback
             }
@@ -198,6 +205,11 @@ export default function Login() {
                                     <TouchableOpacity onPress={() => router.push('/auth/pending-approval')}>
                                         <Text style={{ textAlign: 'center', fontSize: 11, color: '#EF4444' }}>
                                             → Pending Approval
+                                        </Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity onPress={() => router.push('/auth/rejected')}>
+                                        <Text style={{ textAlign: 'center', fontSize: 11, color: '#EF4444' }}>
+                                            → Rejected
                                         </Text>
                                     </TouchableOpacity>
                                 </View>

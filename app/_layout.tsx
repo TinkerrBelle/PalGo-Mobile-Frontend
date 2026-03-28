@@ -55,7 +55,16 @@ function RootLayoutNav(){
                 if (role === 'Customer') {
                     router.replace('/(customer)/home');
                 } else if (role === 'Runner') {
-                    router.replace('/(pal)/home');  // we'll create this next
+                    //router.replace('/(pal)/home');  // we'll create this next
+                    // Check pal approval status
+                    if (user?.palStatus === 'Approved') {
+                        router.replace('/(pal)/home');
+                    } else if (user?.palStatus === 'Rejected') {
+                        router.replace('/auth/rejected');
+                    } else {
+                        // Pending or anything else
+                        router.replace('/auth/pending-approval');
+                    }
                 }
             } else if (hasSeenOnboarding) {
                 // Seen onboarding before, go straight to login
@@ -87,6 +96,7 @@ function RootLayoutNav(){
             <Stack.Screen name="auth/id-verification" />
             <Stack.Screen name="auth/occupation" />
             <Stack.Screen name="auth/pending-approval" />
+            <Stack.Screen name="auth/rejected" />
             {/*<Stack.Screen name="index" />*/}
             {/*<Stack.Screen name="auth" />*/}
             {/*<Stack.Screen name="(tabs)" />*/}

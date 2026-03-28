@@ -8,6 +8,8 @@ import API from '../../services/api';
 import CustomInput from '../../components/CustomInput';
 import CustomButton from '../../components/CustomButton';
 
+// Add this constant at the top with SERVICE_OPTIONS:
+const MAX_SERVICES = 6;
 const SERVICE_OPTIONS = [
     'Errands', 'Deliveries', 'Car wash', 'Plumbing', 'Electrician',
     'House chores', 'Mechanic', 'Chef', 'Nanny', 'Security',
@@ -165,16 +167,22 @@ export default function Occupation() {
                             onPress={() => setShowServiceDropdown(!showServiceDropdown)}
                             disabled={loading}
                             activeOpacity={0.8}
+                            style={{ marginBottom: 8 }}
                         >
                             <ImageBackground
-                                source={require('../../assets/images/input-bg.png')}
+                                source={
+                                    selectedServices.length > 3
+                                        ? require('../../assets/images/input-bg-tall.png')  // taller image when wrapping
+                                        : require('../../assets/images/input-bg.png')        // normal image
+                                }
                                 style={{
                                     paddingHorizontal: 12,
-                                    paddingVertical: Platform.OS === 'ios' ? 11 : 8,
+                                    paddingVertical: Platform.OS === 'ios' ? 9 : 8,
                                     flexDirection: 'row',
                                     alignItems: 'center',
                                     flexWrap: 'wrap',
                                     gap: 6,
+                                    minHeight: selectedServices.length > 3 ? 80 : 44,
                                 }}
                                 imageStyle={{ borderRadius: 28 }}
                             >
@@ -185,11 +193,11 @@ export default function Occupation() {
                                         color: '#4C4C4C',
                                         flex: 1,
                                         paddingHorizontal: 12,
+                                        paddingVertical: 2
                                     }}>
                                         Select Preferred Services
                                     </Text>
                                 ) : (
-                                    // Selected chips
                                     selectedServices.map(service => (
                                         <View
                                             key={service}
@@ -219,6 +227,7 @@ export default function Occupation() {
                                         </View>
                                     ))
                                 )}
+
                                 {/* Chevron — always on the right */}
                                 <View style={{ marginLeft: 'auto', paddingRight: 8 }}>
                                     <Image
@@ -234,53 +243,61 @@ export default function Occupation() {
                             </ImageBackground>
                         </TouchableOpacity>
 
+
                         {/* Dropdown list */}
                         {showServiceDropdown && (
                             <ImageBackground
                                 source={require('../../assets/images/input-bg-select.png')}
                                 style={{ marginBottom: 8, paddingVertical: 8 }}
                                 imageStyle={{ borderRadius: 20 }}
-                                >
-                                {/*style={{
-                                backgroundColor: 'white',
-                                borderRadius: 16,
-                                marginTop: 4,
-                                marginBottom: 8,
-                                paddingVertical: 8,
-                                shadowColor: '#000',
-                                shadowOffset: { width: 0, height: 4 },
-                                shadowOpacity: 0.1,
-                                shadowRadius: 8,
-                                elevation: 4,
-                            }}> */}
-                                {SERVICE_OPTIONS.map(service => (
-                                    <TouchableOpacity
-                                        key={service}
-                                        onPress={() => toggleService(service)}
-                                        style={{
-                                            flexDirection: 'row',
-                                            alignItems: 'center',
-                                            justifyContent: 'space-between',
-                                            paddingHorizontal: 20,
-                                            paddingVertical: 12,
-                                        }}
-                                    >
-                                        <Text style={{
-                                            fontSize: 13,
-                                            fontFamily: selectedServices.includes(service)
-                                                ? 'Nunito_700Bold'
-                                                : 'Nunito_500Medium',
-                                            color: selectedServices.includes(service)
-                                                ? '#2563EB'
-                                                : '#374151',
-                                        }}>
-                                            {service}
-                                        </Text>
-                                        {selectedServices.includes(service) && (
-                                            <Text style={{ color: '#2563EB', fontSize: 14 }}>✓</Text>
-                                        )}
-                                    </TouchableOpacity>
-                                ))}
+                            >
+                                {/* Max selection hint */}
+                                <Text style={{
+                                    fontSize: 11,
+                                    fontFamily: 'Nunito_500Medium',
+                                    color: selectedServices.length >= MAX_SERVICES ? '#EF4444' : '#6B7280',
+                                    paddingHorizontal: 20,
+                                    paddingBottom: 8,
+                                    paddingTop: 4,
+                                }}>
+                                    {selectedServices.length >= MAX_SERVICES
+                                        ? `Maximum ${MAX_SERVICES} services selected`
+                                        : `Select up to ${MAX_SERVICES} (${selectedServices.length}/${MAX_SERVICES} selected)`
+                                    }
+                                </Text>
+
+                                {SERVICE_OPTIONS.map(service => {
+                                    const isSelected = selectedServices.includes(service);
+                                    const isDisabled = !isSelected && selectedServices.length >= MAX_SERVICES;
+
+                                    return (
+                                        <TouchableOpacity
+                                            key={service}
+                                            onPress={() => {
+                                                if (!isDisabled) toggleService(service);
+                                            }}
+                                            style={{
+                                                flexDirection: 'row',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                paddingHorizontal: 20,
+                                                paddingVertical: 12,
+                                                opacity: isDisabled ? 0.4 : 1,  // grey out unavailable options
+                                            }}
+                                        >
+                                            <Text style={{
+                                                fontSize: 13,
+                                                fontFamily: isSelected ? 'Nunito_700Bold' : 'Nunito_500Medium',
+                                                color: isSelected ? '#2563EB' : '#374151',
+                                            }}>
+                                                {service}
+                                            </Text>
+                                            {isSelected && (
+                                                <Text style={{ color: '#2563EB', fontSize: 14 }}>✓</Text>
+                                            )}
+                                        </TouchableOpacity>
+                                    );
+                                })}
                             </ImageBackground>
                         )}
 
