@@ -2,7 +2,7 @@ import {
     View, Text, TouchableOpacity, ImageBackground, Image,
     ScrollView, Alert, Platform, KeyboardAvoidingView, TextInput
 } from "react-native";
-import { useState } from "react";
+import React, { useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import API from '../../services/api';
 import CustomInput from '../../components/CustomInput';
@@ -87,6 +87,18 @@ export default function Occupation() {
                     source={require('../../assets/images/bckg_drip_C.png')}
                     resizeMode="contain"
                 />
+                <TouchableOpacity
+                    onPress={() => router.back()}
+                    style={{ marginBottom: 16, alignSelf: 'flex-start', position: 'absolute',
+                        zIndex: 10, top: 42, padding: 8
+                    }}
+                >
+                    <Image
+                        source={require('../../assets/images/back-button.png')}
+                        style={{ width: 32, height: 32 }}
+                        resizeMode="contain"
+                    />
+                </TouchableOpacity>
                 <KeyboardAvoidingView
                     behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                     style={{ flex: 1 }}

@@ -97,6 +97,7 @@ function RootLayoutNav(){
             <Stack.Screen name="auth/occupation" />
             <Stack.Screen name="auth/pending-approval" />
             <Stack.Screen name="auth/rejected" />
+            <Stack.Screen name="auth/reapply" />
             {/*<Stack.Screen name="index" />*/}
             {/*<Stack.Screen name="auth" />*/}
             {/*<Stack.Screen name="(tabs)" />*/}

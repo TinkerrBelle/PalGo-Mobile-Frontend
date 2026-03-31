@@ -126,7 +126,7 @@ export default function Rejected() {
                     />
 
                     <TouchableOpacity
-                        onPress={() => router.replace('/auth/create-account-pal')}
+                        onPress={() => router.replace('/auth/reapply')}
                         style={{ marginTop: 16 }}
                     >
                         <Text style={{

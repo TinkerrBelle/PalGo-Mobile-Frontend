@@ -10,7 +10,7 @@ import {
     KeyboardAvoidingView,
     Platform
 } from "react-native";
-import { useState } from "react";
+import React, { useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import Checkbox from "expo-checkbox";
 import API from '../../services/api'; // Adjust the path based on your folder structure
@@ -136,6 +136,18 @@ export default function CreateAccount() {
                 <Image source={require('../../assets/images/bckg_drip_C.png')}
                     resizeMode="contain"
                 />
+                <TouchableOpacity
+                    onPress={() => router.back()}
+                    style={{ marginBottom: 16, alignSelf: 'flex-start', position: 'absolute',
+                        zIndex: 10, top: 42, padding: 8
+                    }}
+                >
+                    <Image
+                        source={require('../../assets/images/back-button.png')}
+                        style={{ width: 32, height: 32 }}
+                        resizeMode="contain"
+                    />
+                </TouchableOpacity>
                 {/* ADD KeyboardAvoidingView wrapping the ScrollView */}
                 <KeyboardAvoidingView
                     behavior={Platform.OS === 'ios' ? 'padding' : 'height'}

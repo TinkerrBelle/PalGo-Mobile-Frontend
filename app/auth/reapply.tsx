@@ -4,31 +4,30 @@ import {
     ActivityIndicator
 } from "react-native";
 import React, { useState } from "react";
-import { router, useLocalSearchParams } from "expo-router";
+import { router } from "expo-router";
 import * as ImagePicker from 'expo-image-picker';
+import { useAuth } from '../../context/AuthContext';
 import API from '../../services/api';
 import CustomInput from '../../components/CustomInput';
 import CustomButton from '../../components/CustomButton';
 
 const ID_TYPES = [
     { label: 'National Identification Number (NIN)', value: 'NIN' },
-    { label: 'Drivers Liscenee', value: 'Drivers Licence' },
+    { label: "Driver's Licence", value: 'Drivers Licence' },
     { label: 'International Passport', value: 'International Passport' },
 ];
 
-export default function IdVerification() {
-    const { userId, email } = useLocalSearchParams<{ userId: string; email: string }>();
+export default function Reapply() {
+    const { user } = useAuth();
 
     const [address, setAddress] = useState('');
     const [idType, setIdType] = useState('');
     const [showIdTypePicker, setShowIdTypePicker] = useState(false);
 
-    // Profile image states
     const [profileImageUri, setProfileImageUri] = useState<string | null>(null);
     const [uploadingProfile, setUploadingProfile] = useState(false);
     const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
 
-    // ID document states
     const [idDocName, setIdDocName] = useState<string | null>(null);
     const [uploadingIdDoc, setUploadingIdDoc] = useState(false);
     const [idDocProgress, setIdDocProgress] = useState(0);
@@ -37,7 +36,6 @@ export default function IdVerification() {
 
     const [loading, setLoading] = useState(false);
 
-    // ── IMAGE UPLOAD HELPER ──────────────────────────────────
     const uploadImage = async (
         uri: string,
         filename: string,
@@ -52,11 +50,9 @@ export default function IdVerification() {
         try {
             const match = /\.(\w+)$/.exec(filename);
             const type = match ? `image/${match[1]}` : 'image/jpeg';
-
             const formData = new FormData();
             formData.append('file', { uri, name: filename, type } as any);
 
-            // Simulate progress since axios doesn't support upload progress easily
             let progress = 0;
             const progressInterval = setInterval(() => {
                 progress += 10;
@@ -64,37 +60,33 @@ export default function IdVerification() {
                 else clearInterval(progressInterval);
             }, 200);
 
-            console.log(`Uploading to ${endpoint}...`);  // ADD
             const response = await API.post(endpoint, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
 
             clearInterval(progressInterval);
-            console.log(`Upload response:`, response.data);  // ADD
             onProgress?.(100);
             setUrl(response.data.url);
             onComplete?.();
-        } catch (error: any) {
+        } catch (error) {
             onProgress?.(0);
-            console.log('Upload error:', error.response?.status, error.response?.data, error.message);
             Alert.alert('Upload Failed', 'Could not upload image. Please try again.');
         } finally {
             setUploading(false);
         }
     };
 
-    // ── PROFILE IMAGE PICKERS ────────────────────────────────
     const requestPermission = async (type: 'camera' | 'gallery') => {
         if (type === 'camera') {
             const { status } = await ImagePicker.requestCameraPermissionsAsync();
             if (status !== 'granted') {
-                Alert.alert('Permission needed', 'Camera permission is required. Please enable it in your device settings.');
+                Alert.alert('Permission needed', 'Camera permission is required.');
                 return false;
             }
         } else {
             const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
             if (status !== 'granted') {
-                Alert.alert('Permission needed', 'Gallery permission is required. Please enable it in your device settings.');
+                Alert.alert('Permission needed', 'Gallery permission is required.');
                 return false;
             }
         }
@@ -106,17 +98,15 @@ export default function IdVerification() {
         const result = await ImagePicker.launchCameraAsync({
             mediaTypes: 'images',
             allowsEditing: true,
-            aspect: [1, 1],     // profile stays cropped to circle
+            aspect: [1, 1],
             quality: 0.8,
         });
         if (!result.canceled) {
             const uri = result.assets[0].uri;
             const filename = uri.split('/').pop() || 'profile.jpg';
             setProfileImageUri(uri);
-            await uploadImage(
-                uri, filename, '/Upload/profile-image',
-                setUploadingProfile, setProfileImageUrl
-            );
+            await uploadImage(uri, filename, '/Upload/profile-image',
+                setUploadingProfile, setProfileImageUrl);
         }
     };
 
@@ -125,26 +115,23 @@ export default function IdVerification() {
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: 'images',
             allowsEditing: true,
-            aspect: [1, 1],     // profile stays cropped to circle
+            aspect: [1, 1],
             quality: 0.8,
         });
         if (!result.canceled) {
             const uri = result.assets[0].uri;
             const filename = uri.split('/').pop() || 'profile.jpg';
             setProfileImageUri(uri);
-            await uploadImage(
-                uri, filename, '/Upload/profile-image',
-                setUploadingProfile, setProfileImageUrl
-            );
+            await uploadImage(uri, filename, '/Upload/profile-image',
+                setUploadingProfile, setProfileImageUrl);
         }
     };
 
-    // ── ID DOCUMENT PICKERS ──────────────────────────────────
     const handleIdDocCamera = async () => {
         if (!await requestPermission('camera')) return;
         const result = await ImagePicker.launchCameraAsync({
             mediaTypes: 'images',
-            allowsEditing: false,   // NO crop for ID doc
+            allowsEditing: false,
             quality: 0.9,
         });
         if (!result.canceled) {
@@ -152,12 +139,9 @@ export default function IdVerification() {
             const filename = uri.split('/').pop() || 'id-doc.jpg';
             setIdDocName(filename);
             setIdDocUploaded(false);
-            await uploadImage(
-                uri, filename, '/Upload/id-document',
+            await uploadImage(uri, filename, '/Upload/id-document',
                 setUploadingIdDoc, setIdDocUrl,
-                setIdDocProgress,
-                () => setIdDocUploaded(true),
-            );
+                setIdDocProgress, () => setIdDocUploaded(true));
         }
     };
 
@@ -165,7 +149,7 @@ export default function IdVerification() {
         if (!await requestPermission('gallery')) return;
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: 'images',
-            allowsEditing: false,   // NO crop for ID doc
+            allowsEditing: false,
             quality: 0.9,
         });
         if (!result.canceled) {
@@ -173,12 +157,9 @@ export default function IdVerification() {
             const filename = uri.split('/').pop() || 'id-doc.jpg';
             setIdDocName(filename);
             setIdDocUploaded(false);
-            await uploadImage(
-                uri, filename, '/Upload/id-document',
+            await uploadImage(uri, filename, '/Upload/id-document',
                 setUploadingIdDoc, setIdDocUrl,
-                setIdDocProgress,
-                () => setIdDocUploaded(true),
-            );
+                setIdDocProgress, () => setIdDocUploaded(true));
         }
     };
 
@@ -189,45 +170,25 @@ export default function IdVerification() {
         setIdDocUrl(null);
     };
 
-    // ── SUBMIT ───────────────────────────────────────────────
-    const handleNext = async () => {
-        // ADD these logs
-        console.log('profileImageUrl:', profileImageUrl);
-        console.log('idDocUrl:', idDocUrl);
-        console.log('userId:', userId);
-        if (!profileImageUrl) {
-            Alert.alert('Error', 'Please upload a profile picture');
-            return;
-        }
-        if (!address.trim()) {
-            Alert.alert('Error', 'Please enter your address');
-            return;
-        }
-        if (!idType) {
-            Alert.alert('Error', 'Please select an ID type');
-            return;
-        }
-        if (!idDocUrl) {
-            Alert.alert('Error', 'Please upload your ID document');
+    const handleSubmit = async () => {
+        if (!profileImageUrl && !idDocUrl && !address && !idType) {
+            Alert.alert('Error', 'Please update at least one piece of information before reapplying');
             return;
         }
 
         setLoading(true);
         try {
-            await API.post('/Auth/update-id-verification', {
-                userId,
+            await API.post('/Auth/reapply', {
+                userId: user?.id,
                 profileImageUrl,
                 address,
                 idType,
                 idDocumentUrl: idDocUrl,
             });
 
-            router.push({
-                pathname: '/auth/occupation',
-                params: { userId, email }
-            });
+            router.replace('/auth/pending-approval');
         } catch (error: any) {
-            const message = error.response?.data?.message || 'Failed to save. Please try again.';
+            const message = error.response?.data?.message || 'Failed to submit. Please try again.';
             Alert.alert('Error', message);
         } finally {
             setLoading(false);
@@ -276,17 +237,37 @@ export default function IdVerification() {
                             textAlign: 'center',
                             marginBottom: 8,
                         }}>
-                            Verification
+                            Reapply
                         </Text>
                         <Text style={{
                             fontSize: 12,
                             fontFamily: 'Nunito_500Medium',
                             color: '#6B7280',
                             textAlign: 'center',
+                            marginBottom: 8,
+                        }}>
+                            Please update your information and resubmit your application.
+                        </Text>
+
+                        {/* Note */}
+                        <View style={{
+                            backgroundColor: 'rgba(239,68,68,0.08)',
+                            borderRadius: 12,
+                            padding: 12,
                             marginBottom: 24,
                         }}>
-                            Please provide your details for verification.
-                        </Text>
+                            <Text style={{
+                                fontSize: 12,
+                                fontFamily: 'Nunito_500Medium',
+                                color: '#EF4444',
+                                textAlign: 'center',
+                            }}>
+                                You only need to update the information that caused your rejection. Everything else will remain the same.
+                            </Text>
+                        </View>
+
+                        {/* Profile picture, address, ID type, ID doc
+                            — same UI as id-verification.tsx, copy those sections here */}
 
                         {/* ── PROFILE PICTURE ── */}
                         <Text style={{
@@ -296,22 +277,16 @@ export default function IdVerification() {
                             marginBottom: 10,
                             textAlign: 'center'
                         }}>
-                            Upload Profile Image
+                            Update Profile Image (optional)
                         </Text>
 
-                        {/* Profile image holder — only the circle is tappable */}
                         <View style={{ alignItems: 'center', marginBottom: 24 }}>
                             <View style={{ position: 'relative' }}>
-                                {/* Circle image holder */}
                                 <ImageBackground
                                     source={require('../../assets/images/input-bg-circle.png')}
                                     style={{
-                                        width: 70,
-                                        height: 70,
-                                        borderRadius: 35,
-                                        overflow: 'hidden',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
+                                        width: 70, height: 70, borderRadius: 35,
+                                        overflow: 'hidden', alignItems: 'center', justifyContent: 'center',
                                     }}
                                     imageStyle={{ borderRadius: 45 }}
                                 >
@@ -323,44 +298,26 @@ export default function IdVerification() {
                                             style={{ width: 60, height: 60, borderRadius: 30 }}
                                         />
                                     ) : (
-                                        // Placeholder person icon
                                         <Image
                                             source={require('../../assets/images/user_upload_icon.png')}
-                                            style={{ width: 60, height: 60, opacity: 1 }}
+                                            style={{ width: 60, height: 60 }}
                                             resizeMode="contain"
                                         />
                                     )}
                                 </ImageBackground>
-
-                                {/* Plus button — top right of circle */}
                                 <TouchableOpacity
-                                    onPress={() => {
-                                        Alert.alert(
-                                            'Profile Picture',
-                                            'Choose an option',
-                                            [
-                                                { text: 'Take Photo', onPress: handleProfileCamera },
-                                                { text: 'Choose from Gallery', onPress: handleProfileGallery },
-                                                { text: 'Cancel', style: 'cancel' },
-                                            ]
-                                        );
-                                    }}
+                                    onPress={() => Alert.alert('Profile Picture', 'Choose an option', [
+                                        { text: 'Take Photo', onPress: handleProfileCamera },
+                                        { text: 'Choose from Gallery', onPress: handleProfileGallery },
+                                        { text: 'Cancel', style: 'cancel' },
+                                    ])}
                                     disabled={uploadingProfile || loading}
                                     style={{
-                                        position: 'absolute',
-                                        top: 0,
-                                        right: 0,
-                                        width: 26,
-                                        height: 26,
-                                        borderRadius: 13,
-                                        // backgroundColor: '#10B981',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        // borderWidth: 2,
-                                        // borderColor: 'white',
+                                        position: 'absolute', top: 0, right: 0,
+                                        width: 26, height: 26, borderRadius: 13,
+                                        alignItems: 'center', justifyContent: 'center',
                                     }}
                                 >
-                                    {/*<Text style={{ color: 'white', fontSize: 16, lineHeight: 20 }}>+</Text>*/}
                                     <Image
                                         source={require('../../assets/images/plus_icon.png')}
                                         style={{ width: 28, height: 28 }}
@@ -377,14 +334,13 @@ export default function IdVerification() {
                             color: '#374151',
                             marginBottom: 10,
                         }}>
-                            Address
+                            Update Address (optional)
                         </Text>
                         <CustomInput
-                            placeholder="Enter full Address"
+                            placeholder="Enter your full home address"
                             value={address}
                             onChangeText={setAddress}
                             editable={!loading}
-                            //icon={require('../../assets/images/location_icon.png')}
                         />
 
                         {/* ── ID TYPE ── */}
@@ -395,7 +351,7 @@ export default function IdVerification() {
                             marginBottom: 10,
                             marginTop: 8,
                         }}>
-                            Preferred Service Type
+                            Update ID Type (optional)
                         </Text>
                         <TouchableOpacity
                             onPress={() => setShowIdTypePicker(true)}
@@ -420,7 +376,7 @@ export default function IdVerification() {
                                 }}>
                                     {idType
                                         ? ID_TYPES.find(t => t.value === idType)?.label
-                                        : 'Select ID'
+                                        : 'Select ID Type'
                                     }
                                 </Text>
                                 <Image
@@ -431,14 +387,14 @@ export default function IdVerification() {
                             </ImageBackground>
                         </TouchableOpacity>
 
-                        {/* ── ID DOCUMENT UPLOAD ── */}
+                        {/* ── ID DOCUMENT ── */}
                         <Text style={{
                             fontSize: 13,
                             fontFamily: 'Nunito_600SemiBold',
                             color: '#374151',
                             marginBottom: 10,
                         }}>
-                            Upload Valid ID
+                            Update ID Document (optional)
                         </Text>
 
                         <ImageBackground
@@ -488,22 +444,22 @@ export default function IdVerification() {
                                                 resizeMode="contain"
                                             />
                                             {/*<View>*/}
-                                                <Text style={{
-                                                    fontSize: 12,
-                                                    fontFamily: 'Nunito_500Medium',
-                                                    color: '#2563EB',
-                                                    textAlign: 'center',
-                                                }}>
-                                                    Tap to upload Photo
-                                                </Text>
-                                                <Text style={{
-                                                    fontSize: 12,
-                                                    fontFamily: 'Nunito_400Regular',
-                                                    color: '#4C4C4C',
-                                                    textAlign: 'center',
-                                                }}>
-                                                    PNG, JPEG or PDF (max 800x400px)
-                                                </Text>
+                                            <Text style={{
+                                                fontSize: 12,
+                                                fontFamily: 'Nunito_500Medium',
+                                                color: '#2563EB',
+                                                textAlign: 'center',
+                                            }}>
+                                                Tap to upload Photo
+                                            </Text>
+                                            <Text style={{
+                                                fontSize: 12,
+                                                fontFamily: 'Nunito_400Regular',
+                                                color: '#4C4C4C',
+                                                textAlign: 'center',
+                                            }}>
+                                                PNG, JPEG or PDF (max 800x400px)
+                                            </Text>
                                             {/*</View>*/}
                                         </TouchableOpacity>
 
@@ -589,7 +545,7 @@ export default function IdVerification() {
                                                 height: Platform.OS === 'ios' ? 80 : 70,
                                                 marginTop: Platform.OS === 'ios' ? 10 : 7,
                                                 marginBottom: Platform.OS === 'ios' ? 5 : 2,
-                                        }}
+                                            }}
                                             resizeMode="contain"
                                         />
                                         {/*<View style={{*/}
@@ -647,20 +603,18 @@ export default function IdVerification() {
                             </View>
                         </ImageBackground>
 
-                        {/* Next button stays outside the upload background */}
                         <View style={{ marginTop: 24 }}>
                             <CustomButton
-                                title="Next"
-                                onPress={handleNext}
+                                title="Submit Reapplication"
+                                onPress={handleSubmit}
                                 loading={loading}
                             />
                         </View>
-
                     </ScrollView>
                 </KeyboardAvoidingView>
             </ImageBackground>
 
-            {/* ── ID TYPE PICKER MODAL ── */}
+            {/* ID Type Picker Modal */}
             <Modal
                 visible={showIdTypePicker}
                 transparent={true}

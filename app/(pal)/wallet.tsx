@@ -1,9 +1,9 @@
 import { View, Text } from 'react-native';
 
-export default function PalEarnings() {
+export default function PalWallet() {
     return (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <Text>Pal Earnings</Text>
+            <Text>Pal Wallet</Text>
         </View>
     );
 }
