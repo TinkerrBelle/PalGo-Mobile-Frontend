@@ -1,8 +1,8 @@
 import {
-    View, Text, TouchableOpacity, StyleSheet,
+    View, Text, ImageBackground, TouchableOpacity, StyleSheet,
     ScrollView, Modal, TextInput, Alert,
     KeyboardAvoidingView, Platform, ActivityIndicator,
-    Animated, Dimensions
+    Dimensions, PanResponder, Image
 } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useState, useEffect, useRef } from 'react';
@@ -17,6 +17,10 @@ const { height } = Dimensions.get('window');
 const POPULAR_SERVICES = [
     'Get groceries', 'Wash my car', 'Do house chores',
     'Run errands', 'Food delivery', 'Laundry',
+];
+
+const ERRAND_DURATIONS = [
+    '30 mins', '1 hour', '2 hours', '3 hours', '4 hours', 'Half day', 'Full day'
 ];
 
 interface Errand {
@@ -38,19 +42,19 @@ interface Errand {
     };
 }
 
+// Sheet snap points as % of screen height from bottom
+const SNAP_COLLAPSED = height * 0.18;  // just handle + button visible
+const SNAP_HALF = height * 0.45;       // half screen
+const SNAP_FULL = height * 0.82;       // almost full screen
+
 export default function CustomerHome() {
     const { user } = useAuth();
 
-    // Location
     const [location, setLocation] = useState<Location.LocationObject | null>(null);
-    const [locationError, setLocationError] = useState(false);
-
-    // Errands
     const [myErrands, setMyErrands] = useState<Errand[]>([]);
     const [activeErrand, setActiveErrand] = useState<Errand | null>(null);
     const [loadingErrands, setLoadingErrands] = useState(false);
 
-    // Request form
     const [showRequestForm, setShowRequestForm] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
     const [formLoading, setFormLoading] = useState(false);
@@ -59,12 +63,60 @@ export default function CustomerHome() {
     const [errandTitle, setErrandTitle] = useState('');
     const [errandDetails, setErrandDetails] = useState('');
     const [errandAddress, setErrandAddress] = useState('');
-    const [errandPrice, setErrandPrice] = useState('');
+    const [errandTime, setErrandTime] = useState('');           // Choose Time
+    const [errandDuration, setErrandDuration] = useState('');   // Estimated Errand Time
+    const [errandBudget, setErrandBudget] = useState('');       // Budget Range
+    const [specialNotes, setSpecialNotes] = useState('');       // Special Notes
     const [errandCategory, setErrandCategory] = useState('');
     const [usingGPS, setUsingGPS] = useState(false);
+    const [showDurationPicker, setShowDurationPicker] = useState(false);
+
+    // Bottom sheet drag
+    const sheetHeight = useRef(SNAP_HALF);
+    const [sheetHeightState, setSheetHeightState] = useState(SNAP_HALF);
+    const dragStartY = useRef(0);
+    const dragStartHeight = useRef(SNAP_HALF);
+
+    const panResponder = useRef(
+        PanResponder.create({
+            onStartShouldSetPanResponder: () => true,
+            onMoveShouldSetPanResponder: () => true,
+            onPanResponderGrant: (_, gestureState) => {
+                dragStartY.current = gestureState.y0;
+                dragStartHeight.current = sheetHeight.current;
+            },
+            onPanResponderMove: (_, gestureState) => {
+                const newHeight = dragStartHeight.current - gestureState.dy;
+                const clamped = Math.max(SNAP_COLLAPSED, Math.min(SNAP_FULL, newHeight));
+                sheetHeight.current = clamped;
+                setSheetHeightState(clamped);
+            },
+            onPanResponderRelease: (_, gestureState) => {
+                // Snap to nearest point
+                const velocity = gestureState.vy;
+                let snapTo = SNAP_HALF;
+
+                if (velocity < -0.5) {
+                    snapTo = SNAP_FULL;
+                } else if (velocity > 0.5) {
+                    snapTo = SNAP_COLLAPSED;
+                } else {
+                    const distToCollapsed = Math.abs(sheetHeight.current - SNAP_COLLAPSED);
+                    const distToHalf = Math.abs(sheetHeight.current - SNAP_HALF);
+                    const distToFull = Math.abs(sheetHeight.current - SNAP_FULL);
+                    const min = Math.min(distToCollapsed, distToHalf, distToFull);
+                    if (min === distToCollapsed) snapTo = SNAP_COLLAPSED;
+                    else if (min === distToHalf) snapTo = SNAP_HALF;
+                    else snapTo = SNAP_FULL;
+                }
+
+                sheetHeight.current = snapTo;
+                setSheetHeightState(snapTo);
+            },
+        })
+    ).current;
 
     const mapRef = useRef<MapView>(null);
-    const slideAnim = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
         requestLocation();
@@ -72,7 +124,6 @@ export default function CustomerHome() {
     }, []);
 
     useEffect(() => {
-        // Find active errand (Pending, Matched or Active)
         const active = myErrands.find(e =>
             ['Pending', 'Matched', 'Active'].includes(e.status)
         );
@@ -82,15 +133,10 @@ export default function CustomerHome() {
     const requestLocation = async () => {
         try {
             const { status } = await Location.requestForegroundPermissionsAsync();
-            if (status !== 'granted') {
-                setLocationError(true);
-                return;
-            }
+            if (status !== 'granted') return;
             const loc = await Location.getCurrentPositionAsync({});
             setLocation(loc);
-        } catch {
-            setLocationError(true);
-        }
+        } catch { }
     };
 
     const fetchMyErrands = async () => {
@@ -126,21 +172,20 @@ export default function CustomerHome() {
 
     const handleSubmitErrand = async () => {
         if (!errandTitle.trim()) {
-            Alert.alert('Error', 'Please enter an errand title');
+            Alert.alert('Error', 'Please enter an errand name');
             return;
         }
         if (!errandAddress.trim()) {
             Alert.alert('Error', 'Please enter a location');
             return;
         }
-        if (!errandPrice.trim() || isNaN(Number(errandPrice))) {
-            Alert.alert('Error', 'Please enter a valid price');
+        if (!errandBudget.trim() || isNaN(Number(errandBudget))) {
+            Alert.alert('Error', 'Please enter a valid budget');
             return;
         }
 
         setFormLoading(true);
         try {
-            // Geocode address to coordinates
             let lat = location?.coords.latitude || 6.5244;
             let lng = location?.coords.longitude || 3.3792;
 
@@ -150,17 +195,23 @@ export default function CustomerHome() {
                     lat = geocoded[0].latitude;
                     lng = geocoded[0].longitude;
                 }
-            } catch {
-                // Use current location coords if geocoding fails
-            }
+            } catch { }
+
+            // Combine all details into description
+            const fullDescription = [
+                errandDetails,
+                errandTime ? `Preferred Time: ${errandTime}` : '',
+                errandDuration ? `Estimated Duration: ${errandDuration}` : '',
+                specialNotes ? `Special Notes: ${specialNotes}` : '',
+            ].filter(Boolean).join('\n');
 
             await API.post('/Errand', {
                 title: errandTitle,
-                description: errandDetails,
+                description: fullDescription,
                 address: errandAddress,
                 latitude: lat,
                 longitude: lng,
-                price: parseFloat(errandPrice),
+                price: parseFloat(errandBudget),
                 category: errandCategory,
             });
 
@@ -171,13 +222,15 @@ export default function CustomerHome() {
             setErrandTitle('');
             setErrandDetails('');
             setErrandAddress('');
-            setErrandPrice('');
+            setErrandTime('');
+            setErrandDuration('');
+            setErrandBudget('');
+            setSpecialNotes('');
             setErrandCategory('');
 
-            // Refresh errands
             fetchMyErrands();
         } catch (error: any) {
-            const message = error.response?.data?.message || 'Failed to post errand. Please try again.';
+            const message = error.response?.data?.message || 'Failed to post errand.';
             Alert.alert('Error', message);
         } finally {
             setFormLoading(false);
@@ -217,7 +270,7 @@ export default function CustomerHome() {
                             await API.post(`/Errand/${activeErrand.id}/complete`);
                             fetchMyErrands();
                         } catch (error: any) {
-                            Alert.alert('Error', error.response?.data?.message || 'Failed to complete');
+                            Alert.alert('Error', error.response?.data?.message || 'Failed');
                         }
                     }
                 }
@@ -230,17 +283,7 @@ export default function CustomerHome() {
             case 'Pending': return '#F59E0B';
             case 'Matched': return '#3B82F6';
             case 'Active': return '#10B981';
-            case 'Completed': return '#6B7280';
             default: return '#6B7280';
-        }
-    };
-
-    const getStatusMessage = (status: string) => {
-        switch (status) {
-            case 'Pending': return '🔍 Looking for a Pal...';
-            case 'Matched': return '🙋 A Pal wants to help! Review below.';
-            case 'Active': return '🚀 Your Pal is on the way!';
-            default: return '';
         }
     };
 
@@ -250,7 +293,7 @@ export default function CustomerHome() {
 
     return (
         <View style={styles.container}>
-            {/* ── MAP ── */}
+            {/* ── MAP (fullscreen) ── */}
             <MapView
                 ref={mapRef}
                 style={styles.map}
@@ -270,20 +313,18 @@ export default function CustomerHome() {
                     longitudeDelta: 0.05,
                 } : undefined}
             >
-                {/* Customer location marker */}
                 {location && (
                     <Marker
                         coordinate={{
                             latitude: location.coords.latitude,
                             longitude: location.coords.longitude,
                         }}
-                        title="You are here"
+                        title="You"
                         pinColor="#2563EB"
                     />
                 )}
 
-                {/* Active errand location marker */}
-                {activeErrand && activeErrand.latitude && activeErrand.longitude && (
+                {activeErrand?.latitude && activeErrand?.longitude && (
                     <Marker
                         coordinate={{
                             latitude: activeErrand.latitude,
@@ -294,18 +335,11 @@ export default function CustomerHome() {
                     />
                 )}
 
-                {/* Line between customer and errand location when active */}
                 {activeErrand?.status === 'Active' && location && activeErrand.latitude && (
                     <Polyline
                         coordinates={[
-                            {
-                                latitude: location.coords.latitude,
-                                longitude: location.coords.longitude,
-                            },
-                            {
-                                latitude: activeErrand.latitude,
-                                longitude: activeErrand.longitude,
-                            },
+                            { latitude: location.coords.latitude, longitude: location.coords.longitude },
+                            { latitude: activeErrand.latitude, longitude: activeErrand.longitude },
                         ]}
                         strokeColor="#2563EB"
                         strokeWidth={3}
@@ -314,39 +348,62 @@ export default function CustomerHome() {
                 )}
             </MapView>
 
-            {/* ── TOP BAR ── */}
+            {/* ── TOP BAR — profile pic left, notification right ── */}
             <View style={styles.topBar}>
-                <View style={styles.greeting}>
-                    <Text style={styles.greetingText}>
-                        Hi, {user?.firstName} 👋
-                    </Text>
-                    <Text style={styles.greetingSubtext}>
-                        What do you need help with?
-                    </Text>
-                </View>
+                {/* Profile picture */}
+                <TouchableOpacity style={styles.profilePic}>
+
+                <ImageBackground source={require('../../assets/images/profile-picture-holder.png')}
+                    style={styles.ProfilePicBG}>
+                    <View style={styles.ProfileCircle}>
+                        {user?.profileImageUrl ? (
+                            <Image
+                                source={{ uri: user.profileImageUrl }}
+                                style={styles.profileImage}
+                            />
+                        ) : (
+                            <View style={styles.profilePlaceholder}>
+                                <Text style={styles.profileInitial}>
+                                    {user?.firstName?.charAt(0) || 'U'}
+                                </Text>
+                            </View>
+                        )}
+                    </View>
+                </ImageBackground>
+                </TouchableOpacity>
+
+                {/* Notification button */}
+                <TouchableOpacity style={styles.notificationBtn}>
+                    <Image source={require('../../assets/images/notification-icon.png')} style={styles.notificationIcon} />
+                </TouchableOpacity>
             </View>
 
-            {/* ── BOTTOM SLIDER ── */}
-            <View style={styles.bottomSheet}>
-                <View style={styles.bottomSheetHandle} />
+            {/* ── DRAGGABLE BOTTOM SHEET ── */}
+            <View style={[styles.bottomSheet, { height: sheetHeightState }]}>
+                {/* Drag handle */}
+                <View
+                    {...panResponder.panHandlers}
+                    style={styles.dragArea}
+                >
+                    <View style={styles.handle} />
+                </View>
 
                 <ScrollView
                     showsVerticalScrollIndicator={false}
-                    contentContainerStyle={{ paddingBottom: 20 }}
+                    contentContainerStyle={{ paddingBottom: 40 }}
+                    scrollEnabled={sheetHeightState >= SNAP_HALF}
                 >
                     {!activeErrand ? (
-                        // ── NO ACTIVE ERRAND — show request button ──
                         <>
+                            {/* Request button */}
                             <TouchableOpacity
                                 style={styles.requestButton}
                                 onPress={() => setShowRequestForm(true)}
                             >
-                                <Text style={styles.requestButtonText}>
-                                    + Request an Errand
-                                </Text>
+                                <Text style={styles.requestButtonText}>+ Request an Errand</Text>
                             </TouchableOpacity>
 
-                            {/* Popular Services */}
+                            {/* Popular Services — only show if user has previous errands */}
                             {myErrands.length > 0 && (
                                 <>
                                     <Text style={styles.sectionTitle}>Popular Services</Text>
@@ -394,31 +451,37 @@ export default function CustomerHome() {
                             )}
                         </>
                     ) : (
-                        // ── ACTIVE ERRAND ──
                         <>
-                            {/* Status banner */}
-                            <View style={[styles.statusBanner, { borderLeftColor: getStatusColor(activeErrand.status) }]}>
+                            {/* Active errand card */}
+                            <View style={[styles.statusBanner,
+                                { borderLeftColor: getStatusColor(activeErrand.status) }]}>
                                 <Text style={styles.statusBannerText}>
-                                    {getStatusMessage(activeErrand.status)}
+                                    {activeErrand.status === 'Pending' && '🔍 Looking for a Pal...'}
+                                    {activeErrand.status === 'Matched' && '🙋 A Pal wants to help!'}
+                                    {activeErrand.status === 'Active' && '🚀 Your Pal is on the way!'}
                                 </Text>
                             </View>
 
-                            {/* Errand card */}
                             <View style={styles.activeErrandCard}>
                                 <Text style={styles.activeErrandTitle}>{activeErrand.title}</Text>
-                                <Text style={styles.activeErrandDetail}>📍 {activeErrand.address}</Text>
-                                <Text style={styles.activeErrandDetail}>💰 ₦{activeErrand.price.toLocaleString()}</Text>
-                                {activeErrand.description ? (
-                                    <Text style={styles.activeErrandDetail}>📝 {activeErrand.description}</Text>
-                                ) : null}
+                                <View style={styles.activeErrandRowDetail}>
+                                    <Image source={require('../../assets/images/location-icon.png')} />
+                                    <Text style={styles.activeErrandDetail}>{activeErrand.address}</Text>
+                                </View>
+                                <View style={styles.activeErrandRowDetail}>
+                                    <Image source={require('../../assets/images/cash-icon.png')} />
+                                    <Text style={styles.activeErrandDetail}>
+                                         ₦{activeErrand.price.toLocaleString()}
+                                    </Text>
+                                </View>
 
-                                {/* Status badge */}
-                                <View style={[styles.statusBadge, { backgroundColor: getStatusColor(activeErrand.status) }]}>
+
+                                <View style={[styles.statusBadge,
+                                    { backgroundColor: getStatusColor(activeErrand.status) }]}>
                                     <Text style={styles.statusBadgeText}>{activeErrand.status}</Text>
                                 </View>
                             </View>
 
-                            {/* Matched — show pal info + accept/decline */}
                             {activeErrand.status === 'Matched' && activeErrand.pal && (
                                 <View style={styles.palCard}>
                                     <Text style={styles.palCardTitle}>
@@ -441,7 +504,6 @@ export default function CustomerHome() {
                                 </View>
                             )}
 
-                            {/* Active — show complete button */}
                             {activeErrand.status === 'Active' && (
                                 <TouchableOpacity
                                     style={styles.completeBtn}
@@ -455,7 +517,7 @@ export default function CustomerHome() {
                 </ScrollView>
             </View>
 
-            {/* ── REQUEST ERRAND FORM MODAL ── */}
+            {/* ── REQUEST FORM MODAL ── */}
             <Modal
                 visible={showRequestForm}
                 animationType="slide"
@@ -471,16 +533,15 @@ export default function CustomerHome() {
                     behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 >
                     <View style={styles.formSheet}>
-                        <View style={styles.bottomSheetHandle} />
+                        <View style={styles.handle} />
 
                         <Text style={styles.formTitle}>Request an Errand</Text>
-                        <Text style={styles.formSubtitle}>
-                            Tell us what you need help with
-                        </Text>
+                        <Text style={styles.formSubtitle}>Tell us what you need help with</Text>
 
                         <ScrollView
                             showsVerticalScrollIndicator={false}
                             keyboardShouldPersistTaps="handled"
+                            contentContainerStyle={{ paddingBottom: 40 }}
                         >
                             {/* Errand Name */}
                             <Text style={styles.fieldLabel}>Errand Name</Text>
@@ -518,8 +579,8 @@ export default function CustomerHome() {
                                 ))}
                             </ScrollView>
 
-                            {/* Details */}
-                            <Text style={styles.fieldLabel}>Additional Details (optional)</Text>
+                            {/* Add Details */}
+                            <Text style={styles.fieldLabel}>Add Details</Text>
                             <View style={styles.textAreaWrapper}>
                                 <TextInput
                                     placeholder="Describe what you need in more detail..."
@@ -553,14 +614,62 @@ export default function CustomerHome() {
                                 )}
                             </TouchableOpacity>
 
-                            {/* Price */}
-                            <Text style={styles.fieldLabel}>Offered Price (₦)</Text>
+                            {/* Choose Time */}
+                            <Text style={styles.fieldLabel}>Choose Time</Text>
+                            <CustomInput
+                                placeholder="e.g. 10:00 AM, Anytime today"
+                                value={errandTime}
+                                onChangeText={setErrandTime}
+                            />
+
+                            {/* Estimated Errand Time */}
+                            <Text style={styles.fieldLabel}>Estimated Errand Time</Text>
+                            <TouchableOpacity
+                                onPress={() => setShowDurationPicker(true)}
+                                style={{ marginBottom: 16 }}
+                            >
+                                <View style={{
+                                    backgroundColor: 'rgba(0,0,0,0.04)',
+                                    borderRadius: 28,
+                                    paddingHorizontal: 20,
+                                    paddingVertical: Platform.OS === 'ios' ? 14 : 10,
+                                    flexDirection: 'row',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                }}>
+                                    <Text style={{
+                                        fontSize: 12,
+                                        fontFamily: 'Nunito_500Medium',
+                                        color: errandDuration ? '#111827' : '#9CA3AF',
+                                    }}>
+                                        {errandDuration || 'Select estimated duration'}
+                                    </Text>
+                                    <Text style={{ color: '#9CA3AF' }}>›</Text>
+                                </View>
+                            </TouchableOpacity>
+
+                            {/* Budget Range */}
+                            <Text style={styles.fieldLabel}>Enter Budget Range (₦)</Text>
                             <CustomInput
                                 placeholder="e.g. 5000"
-                                value={errandPrice}
-                                onChangeText={setErrandPrice}
+                                value={errandBudget}
+                                onChangeText={setErrandBudget}
                                 keyboardType="numeric"
                             />
+
+                            {/* Special Notes */}
+                            <Text style={styles.fieldLabel}>Special Notes</Text>
+                            <View style={styles.textAreaWrapper}>
+                                <TextInput
+                                    placeholder="Any special instructions for the Pal..."
+                                    placeholderTextColor="#9CA3AF"
+                                    value={specialNotes}
+                                    onChangeText={setSpecialNotes}
+                                    multiline
+                                    numberOfLines={3}
+                                    style={styles.textArea}
+                                />
+                            </View>
 
                             <CustomButton
                                 title="Submit Request"
@@ -570,6 +679,72 @@ export default function CustomerHome() {
                         </ScrollView>
                     </View>
                 </KeyboardAvoidingView>
+            </Modal>
+
+            {/* ── DURATION PICKER MODAL ── */}
+            <Modal
+                visible={showDurationPicker}
+                transparent
+                animationType="slide"
+                onRequestClose={() => setShowDurationPicker(false)}
+            >
+                <TouchableOpacity
+                    style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' }}
+                    activeOpacity={1}
+                    onPress={() => setShowDurationPicker(false)}
+                />
+                <View style={{
+                    backgroundColor: 'white',
+                    borderTopLeftRadius: 24,
+                    borderTopRightRadius: 24,
+                    paddingBottom: 40,
+                }}>
+                    <View style={{
+                        flexDirection: 'row',
+                        justifyContent: 'space-between',
+                        padding: 16,
+                        borderBottomWidth: 1,
+                        borderBottomColor: '#F3F4F6',
+                    }}>
+                        <Text style={{ fontSize: 16, fontFamily: 'Nunito_700Bold', color: '#111827' }}>
+                            Estimated Duration
+                        </Text>
+                        <TouchableOpacity onPress={() => setShowDurationPicker(false)}>
+                            <Text style={{ fontSize: 14, fontFamily: 'Nunito_600SemiBold', color: '#2563EB' }}>
+                                Cancel
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                    {ERRAND_DURATIONS.map(duration => (
+                        <TouchableOpacity
+                            key={duration}
+                            onPress={() => {
+                                setErrandDuration(duration);
+                                setShowDurationPicker(false);
+                            }}
+                            style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                paddingHorizontal: 24,
+                                paddingVertical: 16,
+                                borderBottomWidth: 1,
+                                borderBottomColor: '#F9FAFB',
+                            }}
+                        >
+                            <Text style={{
+                                fontSize: 14,
+                                fontFamily: errandDuration === duration ? 'Nunito_700Bold' : 'Nunito_500Medium',
+                                color: errandDuration === duration ? '#2563EB' : '#374151',
+                            }}>
+                                {duration}
+                            </Text>
+                            {errandDuration === duration && (
+                                <Text style={{ color: '#2563EB' }}>✓</Text>
+                            )}
+                        </TouchableOpacity>
+                    ))}
+                </View>
             </Modal>
 
             {/* ── SUCCESS MODAL ── */}
@@ -597,62 +772,110 @@ export default function CustomerHome() {
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    map: {
-        ...StyleSheet.absoluteFillObject,
-    },
+    container: { flex: 1 },
+    map: { ...StyleSheet.absoluteFillObject },
+
+    // Top bar
     topBar: {
         position: 'absolute',
         top: 56,
         left: 16,
         right: 16,
-        backgroundColor: 'white',
-        borderRadius: 16,
-        padding: 16,
-        shadowColor: '#000',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    profilePic: {
+        width: 59,
+        height: 59,
+        borderRadius: 23,
+        overflow: 'hidden',
+        shadowColor: '#ffffff',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
         elevation: 4,
     },
-    greeting: {},
-    greetingText: {
-        fontSize: 16,
+    ProfilePicBG: {
+        width: 59,
+        height: 59,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    ProfileCircle: {
+        backgroundColor: '#FFFFFF',
+        width: 30,
+        height: 30,
+        borderRadius: 15,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: -6,
+    },
+    profileImage: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+    },
+    profilePlaceholder: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: '#2563EB',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    profileInitial: {
+        fontSize: 14,
         fontFamily: 'Nunito_700Bold',
-        color: '#111827',
+        color: 'white',
     },
-    greetingSubtext: {
-        fontSize: 12,
-        fontFamily: 'Nunito_400Regular',
-        color: '#6B7280',
-        marginTop: 2,
+    notificationBtn: {
+        width: 59,
+        height: 59,
+        borderRadius: 23,
+        //backgroundColor: '#2563EB',
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+        elevation: 4,
     },
+    notificationIcon: {
+        width: 59,
+        height: 59,
+    },
+
+    // Bottom sheet
     bottomSheet: {
         position: 'absolute',
         bottom: 0,
         left: 0,
         right: 0,
-        backgroundColor: 'white',
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
-        padding: 20,
-        maxHeight: height * 0.5,
+        backgroundColor: '#EBF1FF',
+        borderTopLeftRadius: 40,
+        borderTopRightRadius: 40,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: -4 },
         shadowOpacity: 0.1,
         shadowRadius: 12,
         elevation: 10,
+        paddingHorizontal: 20,
+        paddingBottom: 20,
     },
-    bottomSheetHandle: {
-        width: 40,
+    dragArea: {
+        paddingVertical: 12,
+        alignItems: 'center',
+    },
+    handle: {
+        width: 50,
         height: 4,
-        backgroundColor: '#E5E7EB',
+        backgroundColor: '#10B981',
         borderRadius: 2,
-        alignSelf: 'center',
-        marginBottom: 16,
     },
+
+    // Request button
     requestButton: {
         backgroundColor: '#2563EB',
         borderRadius: 16,
@@ -665,12 +888,16 @@ const styles = StyleSheet.create({
         fontFamily: 'Nunito_700Bold',
         color: 'white',
     },
+
+    // Section
     sectionTitle: {
         fontSize: 14,
         fontFamily: 'Nunito_700Bold',
         color: '#111827',
         marginBottom: 12,
     },
+
+    // Service chips
     serviceChip: {
         backgroundColor: '#EFF6FF',
         borderRadius: 20,
@@ -688,9 +915,9 @@ const styles = StyleSheet.create({
         fontFamily: 'Nunito_600SemiBold',
         color: '#2563EB',
     },
-    serviceChipTextActive: {
-        color: 'white',
-    },
+    serviceChipTextActive: { color: 'white' },
+
+    // Recent errands
     recentErrandCard: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -716,10 +943,9 @@ const styles = StyleSheet.create({
         color: '#111827',
         marginRight: 8,
     },
-    recentErrandArrow: {
-        fontSize: 18,
-        color: '#9CA3AF',
-    },
+    recentErrandArrow: { fontSize: 18, color: '#9CA3AF' },
+
+    // Active errand
     statusBanner: {
         borderLeftWidth: 4,
         backgroundColor: '#F9FAFB',
@@ -745,6 +971,11 @@ const styles = StyleSheet.create({
         color: '#111827',
         marginBottom: 4,
     },
+    activeErrandRowDetail: {
+        flexDirection: 'row',
+        gap: 10,
+        alignItems: 'center',
+    },
     activeErrandDetail: {
         fontSize: 12,
         fontFamily: 'Nunito_500Medium',
@@ -762,6 +993,8 @@ const styles = StyleSheet.create({
         fontFamily: 'Nunito_700Bold',
         color: 'white',
     },
+
+    // Pal card
     palCard: {
         backgroundColor: '#EFF6FF',
         borderRadius: 16,
@@ -775,10 +1008,7 @@ const styles = StyleSheet.create({
         marginBottom: 12,
         textAlign: 'center',
     },
-    palActions: {
-        flexDirection: 'row',
-        gap: 12,
-    },
+    palActions: { flexDirection: 'row', gap: 12 },
     declineBtn: {
         flex: 1,
         borderWidth: 1,
@@ -815,6 +1045,8 @@ const styles = StyleSheet.create({
         fontFamily: 'Nunito_700Bold',
         color: 'white',
     },
+
+    // Form modal
     modalOverlay: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.4)',
@@ -824,13 +1056,14 @@ const styles = StyleSheet.create({
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
         padding: 20,
-        maxHeight: height * 0.85,
+        maxHeight: height * 0.90,
     },
     formTitle: {
         fontSize: 20,
         fontFamily: 'Nunito_700Bold',
         color: '#111827',
         marginBottom: 4,
+        marginTop: 8,
     },
     formSubtitle: {
         fontSize: 12,
@@ -858,7 +1091,6 @@ const styles = StyleSheet.create({
         textAlignVertical: 'top',
     },
     gpsButton: {
-        flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
         marginTop: -8,
@@ -870,6 +1102,8 @@ const styles = StyleSheet.create({
         fontFamily: 'Nunito_600SemiBold',
         color: '#2563EB',
     },
+
+    // Success modal
     successOverlay: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.5)',
@@ -885,9 +1119,7 @@ const styles = StyleSheet.create({
         width: '100%',
         gap: 12,
     },
-    successIcon: {
-        fontSize: 56,
-    },
+    successIcon: { fontSize: 56 },
     successTitle: {
         fontSize: 24,
         fontFamily: 'Nunito_700Bold',
