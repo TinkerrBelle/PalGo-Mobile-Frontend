@@ -153,7 +153,7 @@ export default function Login() {
                                 </TouchableOpacity>
 
                                 <TouchableOpacity
-                                    //onPress={() => router.push('/auth/forgot-password')}
+                                    onPress={() => router.push('/auth/forgot-password')}
                                     disabled={loading}
                                 >
                                     <Text className="text-accent-100 text-xs font-nunito-medium">
