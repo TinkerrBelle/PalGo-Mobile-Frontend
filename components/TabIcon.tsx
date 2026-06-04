@@ -1,4 +1,4 @@
-import { View, Text, Image } from 'react-native';
+import {View, Text, Image, Platform} from 'react-native';
 
 interface TabIconProps {
     focused: boolean;
@@ -13,20 +13,24 @@ export default function TabIcon({ focused, activeIcon, inactiveIcon, label }: Ta
             <View style={{
                 backgroundColor: focused ? '#EBF1FF' : 'transparent',
                 borderRadius: 35,
-                paddingHorizontal: 12,
+                paddingHorizontal: Platform.OS === 'ios' ? 10 : 8,
                 paddingVertical: 6,
-                minWidth: 70, minHeight: 70,
+                minWidth: Platform.OS === 'ios' ? 65 : 50,
+                minHeight: Platform.OS === 'ios' ? 65 : 50,
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 4,
+                gap: Platform.OS === 'ios' ? 3 : 2,
             }}>
                 <Image
                     source={focused ? activeIcon : inactiveIcon}
-                    style={{ width: 22, height: 22 }}
+                    style={{
+                        width: Platform.OS === 'ios' ? 20 : 17,
+                        height: Platform.OS === 'ios' ? 20 : 17
+                    }}
                     resizeMode="contain"
                 />
                 <Text style={{
-                    fontSize: 11,
+                    fontSize: Platform.OS === 'ios' ? 10 : 9,
                     fontFamily: 'Nunito_700Bold',
                     color: focused ? '#10B981' : '#FFFFFF',
                 }}>

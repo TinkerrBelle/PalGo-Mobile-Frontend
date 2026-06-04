@@ -5,12 +5,13 @@
         Dimensions, PanResponder, Image
     } from 'react-native';
     import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
-    import { useState, useEffect, useRef } from 'react';
+    import React, { useState, useEffect, useRef } from 'react';
     import * as Location from 'expo-location';
     import { useAuth } from '@/context/AuthContext';
     import API from '@/services/api';
     import CustomButton from '@/components/CustomButton';
     import CustomInput from '@/components/CustomInput';
+    import {router} from "expo-router";
     
     const { height } = Dimensions.get('window');
     
@@ -396,13 +397,20 @@
                         {!activeErrand ? (
                             <>
                                 {/* Request button */}
+                                <View style={styles.requestButtonContainer}>
+                                <ImageBackground source={require('../../assets/images/btn_4.png')}
+                                                 resizeMode= 'stretch'
+                                                 style={styles.requestButtonBG}
+                                                 // className="flex-row justify-center"
+                                >
                                 <TouchableOpacity
                                     style={styles.requestButton}
                                     onPress={() => setShowRequestForm(true)}
                                 >
-                                    <Text style={styles.requestButtonText}>+ Request an Errand</Text>
+                                    <Text style={styles.requestButtonText}>Request an Errand</Text>
                                 </TouchableOpacity>
-    
+                                </ImageBackground>
+                                </View>
                                 {/* Popular Services — only show if user has previous errands */}
                                 {myErrands.length > 0 && (
                                     <>
@@ -444,7 +452,7 @@
                                                 <Text style={styles.recentErrandPrice}>
                                                     ₦{errand.price.toLocaleString()}
                                                 </Text>
-                                                <Text style={styles.recentErrandArrow}>›</Text>
+                                                {/*<Text style={styles.recentErrandArrow}>›</Text>*/}
                                             </View>
                                         ))}
                                     </>
@@ -532,16 +540,40 @@
                     <KeyboardAvoidingView
                         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                     >
-                        <View style={styles.formSheet}>
-                            <View style={styles.handle} />
-    
-                            <Text style={styles.formTitle}>Request an Errand</Text>
-                            <Text style={styles.formSubtitle}>Tell us what you need help with</Text>
+                        <View style={styles.formSheetContainer}>
+                            <View style={styles.formSheet}>
+                            {/*<View style={styles.handle} />*/}
+
+                                <View
+                                    // style={{ flexDirection: 'row', alignItems: 'center' }}
+                                >
+                                    <TouchableOpacity
+                                        onPress={() => router.back()}
+                                        style={{ backgroundColor: 'transparent', alignSelf: 'flex-start', padding: 8, marginTop: 8 }}
+                                        // style={{ marginBottom: 16, alignSelf: 'flex-start', position: 'absolute',
+                                        //     zIndex: 10, top: 42, padding: 8
+                                        // }}
+                                    >
+                                        <Image
+                                            source={require('../../assets/images/back-button.png')}
+                                            style={{ width: 32, height: 32 }}
+                                            resizeMode="contain"
+                                        />
+                                    </TouchableOpacity>
+
+                                    {/*<View>*/}
+                                    {/*    <Text style={styles.formTitle}>Request an Errand</Text>*/}
+                                    {/*    <Text style={styles.formSubtitle}>Tell us what you need help with</Text>*/}
+                                    {/*</View>*/}
+                                    <Text style={styles.formTitle}>Request an Errand</Text>
+
+                                </View>
+
     
                             <ScrollView
                                 showsVerticalScrollIndicator={false}
                                 keyboardShouldPersistTaps="handled"
-                                contentContainerStyle={{ paddingBottom: 40 }}
+                                contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
                             >
                                 {/* Errand Name */}
                                 <Text style={styles.fieldLabel}>Errand Name</Text>
@@ -581,17 +613,22 @@
     
                                 {/* Add Details */}
                                 <Text style={styles.fieldLabel}>Add Details</Text>
-                                <View style={styles.textAreaWrapper}>
-                                    <TextInput
-                                        placeholder="Describe what you need in more detail..."
-                                        placeholderTextColor="#9CA3AF"
-                                        value={errandDetails}
-                                        onChangeText={setErrandDetails}
-                                        multiline
-                                        numberOfLines={3}
-                                        style={styles.textArea}
-                                    />
-                                </View>
+                                {/*<View >*/}
+                                    {/*style={styles.textAreaWrapper}*/}
+                                    <ImageBackground source={require('../../assets/images/input-bg-tall.png')}
+                                                     resizeMode='stretch'
+                                                     style={styles.textAreaWrapper}>
+                                        <TextInput
+                                            placeholder="Describe what you need in more detail..."
+                                            placeholderTextColor="#9CA3AF"
+                                            value={errandDetails}
+                                            onChangeText={setErrandDetails}
+                                            multiline
+                                            numberOfLines={4}
+                                            style={styles.textArea}
+                                        />
+                                    </ImageBackground>
+                                {/*</View>*/}
     
                                 {/* Location */}
                                 <Text style={styles.fieldLabel}>Location</Text>
@@ -628,9 +665,12 @@
                                     onPress={() => setShowDurationPicker(true)}
                                     style={{ marginBottom: 16 }}
                                 >
+                                    <ImageBackground source={require('../../assets/images/input-bg.png')}
+                                                     // resizeMode='stretch'
+                                    >
                                     <View style={{
-                                        backgroundColor: 'rgba(0,0,0,0.04)',
-                                        borderRadius: 28,
+                                        // backgroundColor: 'rgba(0,0,0,0.04)',
+                                        // borderRadius: 28,
                                         paddingHorizontal: 20,
                                         paddingVertical: Platform.OS === 'ios' ? 14 : 10,
                                         flexDirection: 'row',
@@ -644,8 +684,10 @@
                                         }}>
                                             {errandDuration || 'Select estimated duration'}
                                         </Text>
-                                        <Text style={{ color: '#9CA3AF' }}>›</Text>
+                                        <Image source={require('../../assets/images/chevron_down_1.png')}/>
+                                        {/*<Text style={{ color: '#9CA3AF' }}>›</Text>*/}
                                     </View>
+                                    </ImageBackground>
                                 </TouchableOpacity>
     
                                 {/* Budget Range */}
@@ -659,17 +701,30 @@
     
                                 {/* Special Notes */}
                                 <Text style={styles.fieldLabel}>Special Notes</Text>
-                                <View style={styles.textAreaWrapper}>
+                                {/*<View style={styles.textAreaWrapper}>
                                     <TextInput
                                         placeholder="Any special instructions for the Pal..."
                                         placeholderTextColor="#9CA3AF"
                                         value={specialNotes}
                                         onChangeText={setSpecialNotes}
                                         multiline
-                                        numberOfLines={3}
+                                        numberOfLines={4}
                                         style={styles.textArea}
                                     />
-                                </View>
+                                </View>*/}
+                                <ImageBackground source={require('../../assets/images/input-bg-tall.png')}
+                                                 resizeMode='stretch'
+                                                 style={styles.textAreaWrapper}>
+                                    <TextInput
+                                        placeholder="Any special instructions for the Pal..."
+                                        placeholderTextColor="#9CA3AF"
+                                        value={specialNotes}
+                                        onChangeText={setSpecialNotes}
+                                        multiline
+                                        numberOfLines={4}
+                                        style={styles.textArea}
+                                    />
+                                </ImageBackground>
     
                                 <CustomButton
                                     title="Submit Request"
@@ -677,6 +732,7 @@
                                     loading={formLoading}
                                 />
                             </ScrollView>
+                        </View>
                         </View>
                     </KeyboardAvoidingView>
                 </Modal>
@@ -693,57 +749,59 @@
                         activeOpacity={1}
                         onPress={() => setShowDurationPicker(false)}
                     />
-                    <View style={{
-                        backgroundColor: 'white',
-                        borderTopLeftRadius: 24,
-                        borderTopRightRadius: 24,
-                        paddingBottom: 40,
-                    }}>
+                    <View style={styles.formSheetContainer}>
                         <View style={{
-                            flexDirection: 'row',
-                            justifyContent: 'space-between',
-                            padding: 16,
-                            borderBottomWidth: 1,
-                            borderBottomColor: '#F3F4F6',
+                            backgroundColor: 'white',
+                            borderTopLeftRadius: 24,
+                            borderTopRightRadius: 24,
+                            paddingBottom: 40,
                         }}>
-                            <Text style={{ fontSize: 16, fontFamily: 'Nunito_700Bold', color: '#111827' }}>
-                                Estimated Duration
-                            </Text>
-                            <TouchableOpacity onPress={() => setShowDurationPicker(false)}>
-                                <Text style={{ fontSize: 14, fontFamily: 'Nunito_600SemiBold', color: '#2563EB' }}>
-                                    Cancel
+                            <View style={{
+                                flexDirection: 'row',
+                                justifyContent: 'space-between',
+                                padding: 16,
+                                borderBottomWidth: 1,
+                                borderBottomColor: '#F3F4F6',
+                            }}>
+                                <Text style={{ fontSize: 16, fontFamily: 'Nunito_700Bold', color: '#111827' }}>
+                                    Estimated Duration
                                 </Text>
-                            </TouchableOpacity>
+                                <TouchableOpacity onPress={() => setShowDurationPicker(false)}>
+                                    <Text style={{ fontSize: 14, fontFamily: 'Nunito_600SemiBold', color: '#2563EB' }}>
+                                        Cancel
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                            {ERRAND_DURATIONS.map(duration => (
+                                <TouchableOpacity
+                                    key={duration}
+                                    onPress={() => {
+                                        setErrandDuration(duration);
+                                        setShowDurationPicker(false);
+                                    }}
+                                    style={{
+                                        flexDirection: 'row',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        paddingHorizontal: 24,
+                                        paddingVertical: 16,
+                                        borderBottomWidth: 1,
+                                        borderBottomColor: '#F9FAFB',
+                                    }}
+                                >
+                                    <Text style={{
+                                        fontSize: 14,
+                                        fontFamily: errandDuration === duration ? 'Nunito_700Bold' : 'Nunito_500Medium',
+                                        color: errandDuration === duration ? '#2563EB' : '#374151',
+                                    }}>
+                                        {duration}
+                                    </Text>
+                                    {/*{errandDuration === duration && (
+                                        <Text style={{ color: '#2563EB' }}>✓</Text>
+                                    )}*/}
+                                </TouchableOpacity>
+                            ))}
                         </View>
-                        {ERRAND_DURATIONS.map(duration => (
-                            <TouchableOpacity
-                                key={duration}
-                                onPress={() => {
-                                    setErrandDuration(duration);
-                                    setShowDurationPicker(false);
-                                }}
-                                style={{
-                                    flexDirection: 'row',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                    paddingHorizontal: 24,
-                                    paddingVertical: 16,
-                                    borderBottomWidth: 1,
-                                    borderBottomColor: '#F9FAFB',
-                                }}
-                            >
-                                <Text style={{
-                                    fontSize: 14,
-                                    fontFamily: errandDuration === duration ? 'Nunito_700Bold' : 'Nunito_500Medium',
-                                    color: errandDuration === duration ? '#2563EB' : '#374151',
-                                }}>
-                                    {duration}
-                                </Text>
-                                {errandDuration === duration && (
-                                    <Text style={{ color: '#2563EB' }}>✓</Text>
-                                )}
-                            </TouchableOpacity>
-                        ))}
                     </View>
                 </Modal>
     
@@ -858,11 +916,11 @@
             borderTopRightRadius: 40,
             shadowColor: '#000',
             shadowOffset: { width: 0, height: -4 },
-            shadowOpacity: 0.1,
-            shadowRadius: 12,
+            shadowOpacity: 0.3,
+            shadowRadius: 4,
             elevation: 10,
             paddingHorizontal: 20,
-            paddingBottom: 20,
+            paddingBottom: 0,
         },
         dragArea: {
             paddingVertical: 12,
@@ -876,12 +934,20 @@
         },
     
         // Request button
-        requestButton: {
-            backgroundColor: '#2563EB',
-            borderRadius: 16,
-            paddingVertical: 16,
+        requestButtonContainer: {
             alignItems: 'center',
+            marginTop: 10
+        },
+        requestButtonBG: {
+            justifyContent: 'center',
             marginBottom: 20,
+            width: 266,
+            height: 44,
+        },
+        requestButton: {
+            borderRadius: 16,
+            paddingVertical: 8,
+            alignItems: 'center',
         },
         requestButtonText: {
             fontSize: 16,
@@ -899,12 +965,13 @@
     
         // Service chips
         serviceChip: {
-            backgroundColor: '#EFF6FF',
+            backgroundColor: '#2563EB',
             borderRadius: 20,
             paddingHorizontal: 16,
             paddingVertical: 8,
-            borderWidth: 1,
-            borderColor: '#BFDBFE',
+            marginBottom: 20,
+            /*borderWidth: 1,
+            borderColor: '#BFDBFE',*/
         },
         serviceChipActive: {
             backgroundColor: '#2563EB',
@@ -913,7 +980,7 @@
         serviceChipText: {
             fontSize: 12,
             fontFamily: 'Nunito_600SemiBold',
-            color: '#2563EB',
+            color: '#FFFFFF',
         },
         serviceChipTextActive: { color: 'white' },
     
@@ -922,8 +989,9 @@
             flexDirection: 'row',
             alignItems: 'center',
             backgroundColor: '#F9FAFB',
-            borderRadius: 12,
-            padding: 14,
+            borderRadius: 50,
+            paddingVertical: 7,
+            paddingHorizontal: 20,
             marginBottom: 8,
         },
         recentErrandTitle: {
@@ -941,7 +1009,7 @@
             fontSize: 13,
             fontFamily: 'Nunito_700Bold',
             color: '#111827',
-            marginRight: 8,
+            // marginRight: 8,
         },
         recentErrandArrow: { fontSize: 18, color: '#9CA3AF' },
     
@@ -1051,11 +1119,14 @@
             flex: 1,
             backgroundColor: 'rgba(0,0,0,0.4)',
         },
+        formSheetContainer: {
+            backgroundColor: 'rgba(0,0,0,0.4)',
+        },
         formSheet: {
-            backgroundColor: 'white',
-            borderTopLeftRadius: 24,
-            borderTopRightRadius: 24,
-            padding: 20,
+            backgroundColor: '#EBF1FF',
+            borderTopLeftRadius: 40,
+            borderTopRightRadius: 40,
+            // padding: 20,
             maxHeight: height * 0.90,
         },
         formTitle: {
@@ -1063,7 +1134,8 @@
             fontFamily: 'Nunito_700Bold',
             color: '#111827',
             marginBottom: 4,
-            marginTop: 8,
+            marginTop: 0,
+            marginLeft: 20
         },
         formSubtitle: {
             fontSize: 12,
@@ -1078,16 +1150,19 @@
             marginBottom: 8,
         },
         textAreaWrapper: {
-            backgroundColor: 'rgba(0,0,0,0.04)',
-            borderRadius: 16,
-            padding: 12,
+            // backgroundColor: 'rgba(0,0,0,0.04)',
+            // borderRadius: 16,
+            // padding: 12,
+            paddingHorizontal: 24,
+            height: 88,
             marginBottom: 16,
+            paddingVertical: Platform.OS === 'ios' ? 5 : 0,
         },
         textArea: {
             fontSize: 12,
             fontFamily: 'Nunito_500Medium',
             color: '#111827',
-            minHeight: 80,
+            //minHeight: Platform.OS === 'ios' ? 70 : 85,
             textAlignVertical: 'top',
         },
         gpsButton: {

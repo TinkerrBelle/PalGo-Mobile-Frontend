@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router';
 import TabIcon from '@/components/TabIcon';
+import {Platform} from "react-native";
 
 export default function PalLayout() {
     return (
@@ -11,8 +12,8 @@ export default function PalLayout() {
                     backgroundColor: '#2563EB',
                     borderTopWidth: 1,
                     borderTopColor: '#F3F4F6',
-                    height: 97,
-                    paddingBottom: 0,
+                    height: Platform.OS === 'ios' ? 90 : 100,
+                    paddingBottom: Platform.OS === 'ios' ? 0 : 30,
                     paddingTop: 0,
                 },
                 tabBarIconStyle: {
