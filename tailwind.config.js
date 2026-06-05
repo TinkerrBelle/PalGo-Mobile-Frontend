@@ -10,6 +10,7 @@ module.exports = {
             'nunito-medium': ['Nunito_500Medium'],
             'nunito-semibold': ['Nunito_600SemiBold'],
             'nunito-bold': ['Nunito_700Bold'],
+            'nunito-extrabold': ['Nunito_800ExtraBold'],
         },
         colors: {
             primary: '#2563EB',

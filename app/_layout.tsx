@@ -1,5 +1,5 @@
 import { Stack } from 'expo-router';
-import { useFonts, Nunito_400Regular, Nunito_500Medium, Nunito_600SemiBold, Nunito_700Bold } from '@expo-google-fonts/nunito';
+import { useFonts, Nunito_400Regular, Nunito_500Medium, Nunito_600SemiBold, Nunito_700Bold, Nunito_800ExtraBold } from '@expo-google-fonts/nunito';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
 import './globals.css';
@@ -91,6 +91,7 @@ export default function RootLayout() {
         Nunito_600SemiBold,
         Nunito_700Bold,
         Nunito_500Medium,
+        Nunito_800ExtraBold,
     });
 
     if (!fontsLoaded && !fontError) {
