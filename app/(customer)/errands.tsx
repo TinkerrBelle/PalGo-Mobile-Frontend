@@ -1,7 +1,7 @@
 import {
     View, Text, TouchableOpacity, StyleSheet,
     ScrollView, FlatList, Modal, Alert, ActivityIndicator,
-    Image, TextInput as RNTextInput
+    Image, TextInput as RNTextInput, ImageBackground
 } from 'react-native';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
@@ -9,6 +9,7 @@ import API from '@/services/api';
 import { useFocusEffect } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Platform } from 'react-native';
+import {COLORS} from "@/constants/colors";
 
 interface Pal {
     id: string;
@@ -30,7 +31,8 @@ interface Errand {
     pal?: Pal;
 }
 
-const STATUS_TABS = ['All', 'Pending', 'Active', 'Completed', 'Cancelled'];
+const STATUS_TABS = ['Completed', 'Active', 'Pending', 'Cancelled'];
+// const STATUS_TABS = ['All', 'Pending', 'Active', 'Completed', 'Cancelled'];
 
 const STATUS_COLORS: Record<string, string> = {
     Pending: '#F59E0B',
@@ -109,7 +111,7 @@ export default function CustomerErrands() {
     const { user } = useAuth();
     const [errands, setErrands] = useState<Errand[]>([]);
     const [loading, setLoading] = useState(false);
-    const [activeTab, setActiveTab] = useState('All');
+    const [activeTab, setActiveTab] = useState('Completed');
     const [selectedErrand, setSelectedErrand] = useState<Errand | null>(null);
     const [showDetail, setShowDetail] = useState(false);
     const [searchText, setSearchText] = useState('');
@@ -315,9 +317,11 @@ export default function CustomerErrands() {
         new Date(dateStr).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit' });
 
     const isActiveStatus = (status: string) => ['Active', 'Matched'].includes(status);
+    const isPendingStatus = (status: string) => ['Pending', 'Matched'].includes(status);
+    const isCancelStatus = (status: string) => ['Cancelled'].includes(status);
 
     const renderErrandCard = ({ item }: { item: Errand }) => (
-        <View style={styles.errandCard}>
+        /*<View style={styles.errandCard}>
             <TouchableOpacity style={styles.errandCardMain} onPress={() => openDetail(item)}>
                 <View style={styles.errandCardLeft}>
                     <Text style={styles.errandCardTitle} numberOfLines={1}>{item.title}</Text>
@@ -332,7 +336,6 @@ export default function CustomerErrands() {
                 </View>
             </TouchableOpacity>
 
-            {/* Action buttons for active/matched errands */}
             {isActiveStatus(item.status) && (
                 <View style={styles.cardActions}>
                     <TouchableOpacity
@@ -349,6 +352,61 @@ export default function CustomerErrands() {
                     </TouchableOpacity>
                 </View>
             )}
+        </View>*/
+        <View style={[styles.errandCard, isActiveStatus(item.status) && {borderWidth: 1, borderColor: COLORS.secondary, borderRadius: 20}]}>
+            {isActiveStatus(item.status) ? (
+                <TouchableOpacity onPress={() => openDetail(item)}>
+                    <View style={styles.errandCardMain}>
+                        <View style={styles.errandCardLeft}>
+                            <Text style={styles.errandCardTitle} numberOfLines={1}>{item.title}</Text>
+                            {/*<Text style={styles.errandCardAddress} numberOfLines={1}>📍 {item.address}</Text>*/}
+                            <Text style={styles.errandCardDate}> - {formatDate(item.createdAt)}</Text>
+                        </View>
+                        <View style={styles.errandCardRight}>
+                            <Text style={[styles.errandCardPrice, isCancelStatus(item.status) && {color: COLORS.red}]}>₦{item.price.toLocaleString()}</Text>
+                            <Image source={require('../../assets/images/chevron_right.png')} style={{ width: 5, height: 12, alignSelf: 'center' }} />
+                            {/*<View style={[styles.statusBadge, { backgroundColor: STATUS_COLORS[item.status] || '#6B7280' }]}>*/}
+                            {/*    <Text style={styles.statusBadgeText}>{item.status}</Text>*/}
+                            {/*</View>*/}
+                        </View>
+                    </View>
+                    <View style={styles.cardActions}>
+                        <TouchableOpacity
+                            style={styles.completeCardBtn}
+                            onPress={() => handleCompleteErrand(item)}
+                        >
+                            <ImageBackground source={require('../../assets/images/btn_6.png')} resizeMode={"stretch"} style={styles.cardActionsBtn}>
+
+                            <Text style={styles.completeCardBtnText}>Completed</Text>
+                            </ImageBackground>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={styles.viewDetailsBtn}
+                            onPress={() => openDetail(item)}
+                        >
+                            <ImageBackground source={require('../../assets/images/btn_5.png')} resizeMode={"stretch"} style={styles.cardActionsBtn}>
+
+                                <Text style={styles.viewDetailsBtnText}>View Details</Text>
+                            </ImageBackground>
+                        </TouchableOpacity>
+                    </View>
+                </TouchableOpacity>
+            ) : (
+                <TouchableOpacity style={styles.errandCardMain} onPress={() => openDetail(item)}>
+                    <View style={styles.errandCardLeft}>
+                        <Text style={styles.errandCardTitle} numberOfLines={1}>{item.title}</Text>
+                        {/*<Text style={styles.errandCardAddress} numberOfLines={1}>📍 {item.address}</Text>*/}
+                        <Text style={styles.errandCardDate}> - {formatDate(item.createdAt)}</Text>
+                    </View>
+                    <View style={styles.errandCardRight}>
+                        <Text style={[styles.errandCardPrice, isCancelStatus(item.status) && {color: COLORS.red}]}>₦{item.price.toLocaleString()}</Text>
+                        <Image source={require('../../assets/images/chevron_right.png')} style={{ width: 5, height: 12, alignSelf: 'center' }} />
+                        {/*<View style={[styles.statusBadge, { backgroundColor: STATUS_COLORS[item.status] || '#6B7280' }]}>*/}
+                        {/*    <Text style={styles.statusBadgeText}>{item.status}</Text>*/}
+                        {/*</View>*/}
+                    </View>
+                </TouchableOpacity>
+            )}
         </View>
     );
 
@@ -356,33 +414,37 @@ export default function CustomerErrands() {
         <View style={styles.container}>
             {/* Header */}
             <View style={styles.header}>
-                <Text style={styles.headerTitle}>My Errands</Text>
+                <Text style={styles.headerTitle}>Errands</Text>
             </View>
 
             {/* Status Tabs */}
-            <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                style={styles.tabsContainer}
-                contentContainerStyle={styles.tabsContent}
-            >
-                {STATUS_TABS.map(tab => (
-                    <TouchableOpacity
-                        key={tab}
-                        style={[styles.tab, activeTab === tab && styles.tabActive]}
-                        onPress={() => setActiveTab(tab)}
-                    >
-                        <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{tab}</Text>
-                    </TouchableOpacity>
-                ))}
-            </ScrollView>
+            <View style={styles.tabsWrapper}>
+                <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.tabsContainer}
+                    contentContainerStyle={styles.tabsContent}
+                >
+                    {STATUS_TABS.map(tab => (
+                        <TouchableOpacity
+                            key={tab}
+                            style={[styles.tab, activeTab === tab && styles.tabActive]}
+                            onPress={() => setActiveTab(tab)}
+                        >
+                            <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{tab}</Text>
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
+            </View>
 
             {/* Search + Filter Row */}
-            <View style={styles.searchRow}>
-                <View style={styles.searchContainer}>
-                    <Text style={styles.searchIcon}>🔍</Text>
+            <ImageBackground source={require('../../assets/images/input-bg.png')} resizeMode={"stretch"} style={{ margin: 16 }}>
+                <View style={styles.searchContainer} >
+                    <Image source={require('../../assets/images/search_icon.png')} style={{
+                        width: 18, height: 18,
+                    }}/>
                     <RNTextInput
-                        placeholder="Search errands..."
+                        placeholder="Search"
                         placeholderTextColor="#9CA3AF"
                         value={searchText}
                         onChangeText={setSearchText}
@@ -394,13 +456,20 @@ export default function CustomerErrands() {
                         </TouchableOpacity>
                     )}
                 </View>
-                <TouchableOpacity
-                    style={[styles.filterBtn, appliedFilter && styles.filterBtnActive]}
-                    onPress={() => setShowFilter(true)}
-                >
-                    <Text style={styles.filterBtnText}>Filter {appliedFilter ? '●' : '▼'}</Text>
-                </TouchableOpacity>
-            </View>
+            </ImageBackground>
+
+            {/*Filter Button*/}
+            <TouchableOpacity
+                style={styles.filterBtn}
+                onPress={() => setShowFilter(true)}
+            >
+                <View style={{ flexDirection: 'row', gap: 2, alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={styles.filterBtnText}>Filter</Text>
+                    <Image source={require('../../assets/images/filter_icon.png')} style={{
+                        width: 14, height: 14,
+                    }}/>
+                </View>
+            </TouchableOpacity>
 
             {/* Results count */}
             {(searchText || appliedFilter) && (
@@ -414,15 +483,20 @@ export default function CustomerErrands() {
                 <ActivityIndicator color="#2563EB" style={{ marginTop: 40 }} />
             ) : filteredErrands.length === 0 ? (
                 <View style={styles.emptyState}>
-                    <Text style={styles.emptyStateIcon}>📋</Text>
-                    <Text style={styles.emptyStateText}>No errands found</Text>
+                    {/*<Text style={styles.emptyStateIcon}>📋</Text>*/}
+                    <Image source={require('../../assets/images/no_errands.png')} style={{
+                        width: Platform.OS === 'ios' ? 334 : 274, height: Platform.OS === 'ios' ? 334 : 274,
+                    }}/>
+                    <Text style={styles.emptyStateHeader}>Nothing to see yet!</Text>
+                    <Text style={styles.emptyStateText}>Once you initiate any errand, your{"\n"}
+                        {activeTab.toLowerCase()} errands will appear here.</Text>
                 </View>
             ) : (
                 <FlatList
                     data={filteredErrands}
                     keyExtractor={item => item.id.toString()}
                     renderItem={renderErrandCard}
-                    contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+                    contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, paddingTop: 6 }}
                     showsVerticalScrollIndicator={false}
                     onRefresh={fetchErrands}
                     refreshing={loading}
@@ -437,14 +511,19 @@ export default function CustomerErrands() {
             >
                 <View style={styles.filterContainer}>
                     <View style={styles.filterHeader}>
-                        <TouchableOpacity onPress={() => setShowFilter(false)}>
-                            <Text style={styles.backBtn}>‹</Text>
+                        <TouchableOpacity onPress={() => setShowFilter(false)} style={{ padding: 10, width: 52 }}>
+                            {/*<Text style={styles.backBtn}>‹</Text>*/}
+                            <Image
+                                source={require('../../assets/images/back-button.png')}
+                                style={{ width: 32, height: 32, }}
+                                resizeMode="contain"
+                            />
                         </TouchableOpacity>
                         <Text style={styles.filterTitle}>Filter</Text>
-                        <View style={{ width: 40 }} />
+                        {/*<View style={{ width: 40, backgroundColor: 'red' }} />*/}
                     </View>
 
-                    <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 120 }}>
+                    <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120 }}>
                         {/* Preset chips */}
                         <ScrollView
                             horizontal
@@ -476,31 +555,52 @@ export default function CustomerErrands() {
                         {filterPreset === 'Custom Period' && (
                             <>
                                 <TouchableOpacity
-                                    style={styles.dateInput}
                                     onPress={() => {
                                         setFilterStart(filterStartFinal || new Date());
                                         setShowStartPicker(true);
                                         setShowDatePicker(true);
                                     }}
                                 >
-                                    <Text style={[styles.dateInputText, !filterStartFinal && { color: '#9CA3AF' }]}>
-                                        {filterStartFinal ? filterStartFinal.toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Start date'}
-                                    </Text>
-                                    <Text style={styles.calendarIcon}>📅</Text>
+                                    <ImageBackground style={styles.dateInput}
+                                        source={require('../../assets/images/input-bg-date.png')}
+                                        resizeMode='stretch'
+                                    >
+                                        <View style={{ gap: Platform.OS === 'ios' ? 4 : 2 }}>
+                                            <Text style={[styles.dateInputLabel, !filterStartFinal && { color: COLORS.header, fontSize: 12 }]}>Start date</Text>
+                                            {filterStartFinal && (
+                                                <Text style={styles.dateInputText}>
+                                                    {filterStartFinal.toLocaleDateString('en-NG', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                                </Text>
+                                            )}
+                                        </View>
+                                        <Image source={require('../../assets/images/calendar_icon.png')} style={{
+                                            width: 13, height: 15,
+                                        }}/>
+                                    </ImageBackground>
                                 </TouchableOpacity>
 
-                                <TouchableOpacity
-                                    style={styles.dateInput}
-                                    onPress={() => {
+                                <TouchableOpacity onPress={() => {
                                         setFilterEnd(filterEndFinal || new Date());
                                         setShowEndPicker(true);
                                         setShowDatePicker(true);
                                     }}
                                 >
-                                    <Text style={[styles.dateInputText, !filterEndFinal && { color: '#9CA3AF' }]}>
-                                        {filterEndFinal ? filterEndFinal.toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' }) : 'End date'}
-                                    </Text>
-                                    <Text style={styles.calendarIcon}>📅</Text>
+                                    <ImageBackground style={styles.dateInput}
+                                                     source={require('../../assets/images/input-bg-date.png')}
+                                                     resizeMode='stretch'
+                                    >
+                                        <View style={{ gap: Platform.OS === 'ios' ? 4 : 2 }}>
+                                            <Text style={[styles.dateInputLabel, !filterEndFinal && { color: COLORS.header, fontSize: 12 }]}>End date</Text>
+                                            {filterEndFinal && (
+                                                <Text style={styles.dateInputText}>
+                                                    {filterEndFinal.toLocaleDateString('en-NG', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                                </Text>
+                                            )}
+                                        </View>
+                                        <Image source={require('../../assets/images/calendar_icon.png')} style={{
+                                            width: 13, height: 15,
+                                        }}/>
+                                    </ImageBackground>
                                 </TouchableOpacity>
 
 
@@ -525,10 +625,14 @@ export default function CustomerErrands() {
                     {/* Bottom buttons */}
                     <View style={styles.filterFooter}>
                         <TouchableOpacity style={styles.clearAllBtn} onPress={clearFilter}>
-                            <Text style={styles.clearAllBtnText}>Clear All</Text>
+                            <ImageBackground source={require('../../assets/images/btn_7.png')} resizeMode={"stretch"} style={styles.filterFooterBtn}>
+                                <Text style={styles.clearAllBtnText}>Clear All</Text>
+                            </ImageBackground>
                         </TouchableOpacity>
                         <TouchableOpacity style={styles.applyBtn} onPress={applyFilter}>
-                            <Text style={styles.applyBtnText}>Apply</Text>
+                            <ImageBackground source={require('../../assets/images/btn_5.png')} resizeMode={"stretch"} style={styles.filterFooterBtn}>
+                                <Text style={styles.applyBtnText}>Apply</Text>
+                            </ImageBackground>
                         </TouchableOpacity>
                     </View>
 
@@ -567,7 +671,7 @@ export default function CustomerErrands() {
                                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                                     onChange={(_, date) => {
                                         if (date) setFilterStart(date);
-                                        console.log('date', date);
+                                        // console.log('date', date);
                                         if (Platform.OS === 'android') {
                                             setShowStartPicker(false);
                                             applySelectedDate(date);
@@ -576,6 +680,7 @@ export default function CustomerErrands() {
                                     maximumDate={filterEndFinal || new Date()}
                                     textColor="#111827"
                                     themeVariant="light"
+                                    style={{ alignSelf: 'center' }}
                                 />
                             )}
 
@@ -596,6 +701,7 @@ export default function CustomerErrands() {
                                     maximumDate={new Date()}
                                     textColor="#111827"
                                     themeVariant="light"
+                                    style={{ alignSelf: 'center' }}
                                 />
                             )}
                         </View>
@@ -775,70 +881,83 @@ export default function CustomerErrands() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#F9FAFB' },
+    container: { flex: 1, backgroundColor: COLORS.background },
 
     header: {
-        backgroundColor: 'white', paddingTop: 56, paddingBottom: 16,
-        paddingHorizontal: 20, borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
+        backgroundColor: COLORS.background, paddingTop: 56, paddingBottom: 16,
+        paddingHorizontal: 20,
     },
-    headerTitle: { fontSize: 22, fontFamily: 'Nunito_700Bold', color: '#111827' },
+    headerTitle: { fontSize: 18, fontFamily: 'Nunito_800ExtraBold', color: COLORS.header },
 
     tabsContainer: {
-        backgroundColor: 'white', borderBottomWidth: 1,
-        borderBottomColor: '#F3F4F6', maxHeight: 52,
+        backgroundColor: COLORS.background,
+        // flexGrow: 0, height: 50
     },
     tabsContent: {
-        paddingHorizontal: 16, paddingVertical: 8,
+        paddingHorizontal: 16,
         gap: 8, alignItems: 'center',
+    },
+    tabsWrapper: {
+        height: 40,
+        backgroundColor: COLORS.background,
     },
     tab: {
         paddingHorizontal: 14, paddingVertical: 4,
-        borderRadius: 20, backgroundColor: '#F3F4F6', marginRight: 8,
+        borderRadius: 10, backgroundColor: 'white', marginRight: 0,
+        borderWidth: 1, borderColor: COLORS.primary, width: 100, height: 28,
+        alignItems: 'center', justifyContent: 'center'
     },
-    tabActive: { backgroundColor: '#2563EB' },
-    tabText: { fontSize: 13, fontFamily: 'Nunito_600SemiBold', color: '#6B7280' },
+    tabActive: { backgroundColor: COLORS.secondary, borderColor: COLORS.secondary },
+    tabText: { fontSize: 10, fontFamily: 'Nunito_600SemiBold', color: COLORS.primary },
     tabTextActive: { color: 'white' },
 
-    searchRow: {
-        flexDirection: 'row', alignItems: 'center',
-        paddingHorizontal: 16, paddingVertical: 12,
-        backgroundColor: 'white', gap: 10,
-        borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
-    },
     searchContainer: {
-        flex: 1, flexDirection: 'row', alignItems: 'center',
-        backgroundColor: '#F3F4F6', borderRadius: 12,
-        paddingHorizontal: 12, height: 40,
+        // flex: 1, flexDirection: 'row', alignItems: 'center',
+        // backgroundColor: '#F3F4F6', borderRadius: 12,
+        // paddingHorizontal: 12, height: 40,
+
+        paddingHorizontal: 20,
+        paddingVertical: Platform.OS === 'ios' ? 4 : 2,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
     },
     searchIcon: { fontSize: 14, marginRight: 6 },
     searchInput: {
-        flex: 1, fontSize: 13, fontFamily: 'Nunito_500Medium',
-        color: '#111827', height: 40,
+        flex: 1, fontSize: 12,
+        color: COLORS.header, paddingVertical: 10, alignItems: 'center',
+        marginLeft: Platform.OS === 'ios' ? 10 : 2
     },
     filterBtn: {
-        backgroundColor: '#F3F4F6', borderRadius: 12,
-        paddingHorizontal: 14, height: 40,
-        justifyContent: 'center', alignItems: 'center',
+        paddingHorizontal: 16, paddingVertical: 10, justifyContent: 'flex-start', alignSelf: 'flex-start'
     },
-    filterBtnActive: { backgroundColor: '#DBEAFE' },
-    filterBtnText: { fontSize: 13, fontFamily: 'Nunito_600SemiBold', color: '#2563EB' },
+    filterBtnText: { fontSize: 12, fontFamily: 'Nunito_600SemiBold', color: COLORS.black },
 
     resultsCount: {
         fontSize: 12, fontFamily: 'Nunito_500Medium',
         color: '#6B7280', paddingHorizontal: 16, paddingTop: 8,
     },
 
-    emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-    emptyStateIcon: { fontSize: 48 },
-    emptyStateText: { fontSize: 15, fontFamily: 'Nunito_600SemiBold', color: '#6B7280' },
+    emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6, },
+    emptyStateHeader: { fontSize: 14, fontFamily: 'Nunito_700Bold', color: COLORS.primary },
+    emptyStateText: { fontSize: 12, textAlign: 'center', color: COLORS.black, lineHeight: 20 },
 
     errandCard: {
-        backgroundColor: 'white', borderRadius: 16, marginBottom: 10,
-        elevation: 2, shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4,
-        overflow: 'hidden',
+        backgroundColor: 'white', borderRadius: 50, marginBottom: 10,
+        // elevation: 2, shadowColor: '#000',
+        // shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4,
+        // overflow: 'hidden',
     },
     errandCardMain: {
+        flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12,
+    },
+    errandCardLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', },
+    errandCardTitle: { fontSize: 12, color: COLORS.black },
+    errandCardAddress: { fontSize: 10, color: COLORS.header },
+    errandCardDate: { fontSize: 10, fontFamily: 'Nunito_400Regular', color: COLORS.header },
+    errandCardRight: { alignItems: 'flex-end', gap: 8, flexDirection: 'row', },
+    errandCardPrice: { fontSize: 12, fontFamily: 'Nunito_700Bold', color: COLORS.black },
+  /*  errandCardMain: {
         flexDirection: 'row', alignItems: 'center', padding: 16,
     },
     errandCardLeft: { flex: 1 },
@@ -847,37 +966,45 @@ const styles = StyleSheet.create({
     errandCardDate: { fontSize: 11, fontFamily: 'Nunito_400Regular', color: '#9CA3AF' },
     errandCardRight: { alignItems: 'flex-end', gap: 8 },
     errandCardPrice: { fontSize: 15, fontFamily: 'Nunito_700Bold', color: '#2563EB' },
-
+*/
     cardActions: {
-        flexDirection: 'row', borderTopWidth: 1,
-        borderTopColor: '#F3F4F6',
+        flexDirection: 'row', margin: 10
+        // borderTopWidth: 1,
+        // borderTopColor: '#F3F4F6',
+    },
+    cardActionsBtn: {
+        width: Platform.OS === 'ios' ? 138 : 118, height: Platform.OS === 'ios' ? 30 : 26, justifyContent: 'center', alignItems: 'center'
     },
     completeCardBtn: {
-        flex: 1, backgroundColor: '#10B981',
-        paddingVertical: 12, alignItems: 'center',
+        flex: 1,
+        // backgroundColor: '#10B981',
+        // paddingVertical: 12,
+        alignItems: 'center', justifyContent: 'center'
     },
     completeCardBtnText: {
-        fontSize: 13, fontFamily: 'Nunito_700Bold', color: 'white',
+        fontSize: 10, fontFamily: 'Nunito_600SemiBold', color: 'white'
     },
     viewDetailsBtn: {
-        flex: 1, backgroundColor: '#2563EB',
-        paddingVertical: 12, alignItems: 'center',
+        flex: 1, alignItems: 'center', justifyContent: 'center',
+        // backgroundColor: '#2563EB',
+        //paddingVertical: 12,
+
     },
     viewDetailsBtnText: {
-        fontSize: 13, fontFamily: 'Nunito_700Bold', color: 'white',
+        fontSize: 10, fontFamily: 'Nunito_600SemiBold', color: 'white'
     },
 
     statusBadge: { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3 },
     statusBadgeText: { fontSize: 10, fontFamily: 'Nunito_700Bold', color: 'white' },
 
     // Filter modal
-    filterContainer: { flex: 1, backgroundColor: '#F9FAFB' },
+    filterContainer: { flex: 1, backgroundColor: COLORS.background },
     filterHeader: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        paddingTop: 56, paddingBottom: 16, paddingHorizontal: 20,
-        backgroundColor: 'white', borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
+        // flexDirection: 'row',
+        // alignItems: 'center', justifyContent: 'space-between',
+        paddingTop: Platform.OS === 'ios' ? 50 : 0, paddingBottom: 16,
     },
-    filterTitle: { fontSize: 18, fontFamily: 'Nunito_700Bold', color: '#111827' },
+    filterTitle: { fontSize: 18, fontFamily: 'Nunito_800ExtraBold', color: COLORS.header, marginLeft: 20  },
     filterFooterContainer: {
         position: 'absolute', bottom: 0, left: 0, right: 0,
         // flexDirection: 'row', gap: 12, padding: 20,
@@ -885,36 +1012,37 @@ const styles = StyleSheet.create({
     },
     filterFooter: {
         // position: 'absolute', bottom: 0, left: 0, right: 0,
-        flexDirection: 'row', gap: 12, padding: 20,
-        // backgroundColor: 'white', borderTopWidth: 1, borderTopColor: '#F3F4F6',
+        flexDirection: 'row', gap: 12, padding: 20, paddingBottom: 40,
+        // borderTopWidth: 1, borderTopColor: '#F3F4F6',
+    },
+    filterFooterBtn: {
+        width: Platform.OS === 'ios' ? 180 : 150, height: Platform.OS === 'ios' ? 40 : 35, justifyContent: 'center', alignItems: 'center'
     },
     clearAllBtn: {
-        flex: 1, borderWidth: 1, borderColor: '#2563EB',
-        borderRadius: 16, paddingVertical: 14, alignItems: 'center',
+        flex: 1, alignItems: 'center',
     },
-    clearAllBtnText: { fontSize: 14, fontFamily: 'Nunito_600SemiBold', color: '#2563EB' },
+    clearAllBtnText: { fontSize: 10, fontFamily: 'Nunito_600SemiBold', color: COLORS.primary },
     applyBtn: {
-        flex: 1, backgroundColor: '#2563EB',
-        borderRadius: 16, paddingVertical: 14, alignItems: 'center',
+        flex: 1, alignItems: 'center',
     },
-    applyBtnText: { fontSize: 14, fontFamily: 'Nunito_700Bold', color: 'white' },
+    applyBtnText: { fontSize: 10, fontFamily: 'Nunito_600SemiBold', color: 'white' },
 
     presetChip: {
-        paddingHorizontal: 14, paddingVertical: 8,
-        borderRadius: 20, borderWidth: 1, borderColor: '#D1D5DB',
-        backgroundColor: 'white',
+        paddingHorizontal: 14, paddingVertical: 4, width: 110, height: 28,
+        borderRadius: 10, borderWidth: 1, borderColor: COLORS.primary,
+        backgroundColor: 'white', alignItems: 'center', justifyContent: 'center'
     },
-    presetChipActive: { backgroundColor: '#10B981', borderColor: '#10B981' },
-    presetChipText: { fontSize: 13, fontFamily: 'Nunito_600SemiBold', color: '#374151' },
+    presetChipActive: { backgroundColor: COLORS.secondary, borderColor: COLORS.secondary },
+    presetChipText: { fontSize: 10, fontFamily: 'Nunito_600SemiBold', color: COLORS.primary },
     presetChipTextActive: { color: 'white' },
 
     dateInput: {
         flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        backgroundColor: 'white', borderRadius: 12, padding: 16,
-        marginBottom: 12, borderWidth: 1, borderColor: '#E5E7EB',
+        paddingHorizontal: 16, paddingVertical: Platform.OS === 'ios' ? 4 : 2,
+        marginBottom: 12, height: Platform.OS === 'ios' ? 57 : 50,
     },
-    dateInputText: { fontSize: 14, fontFamily: 'Nunito_500Medium', color: '#111827' },
-    calendarIcon: { fontSize: 18 },
+    dateInputLabel: { fontSize: 8, color: COLORS.header },
+    dateInputText: { fontSize: 12, color: COLORS.header },
 
     presetPreview: {
         backgroundColor: '#EFF6FF', borderRadius: 12,

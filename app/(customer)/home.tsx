@@ -5,7 +5,8 @@ import {
     Dimensions, PanResponder, Image
 } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { useAuth } from '@/context/AuthContext';
 import API from '@/services/api';
@@ -119,19 +120,38 @@ export default function CustomerHome() {
 
     const mapRef = useRef<MapView>(null);
 
-    useEffect(() => {
-        requestLocation();
-        fetchMyErrands();
+    // useEffect(() => {
+    //     requestLocation();
+    //     fetchMyErrands();
+    //
+    //     // Poll every 10 seconds to catch pal accepting errand
+    //     pollingRef.current = setInterval(() => {
+    //         fetchMyErrands();
+    //     }, 10000);
+    //
+    //     return () => {
+    //         if (pollingRef.current) clearInterval(pollingRef.current);
+    //     };
+    // }, []);
 
-        // Poll every 10 seconds to catch pal accepting errand
-        pollingRef.current = setInterval(() => {
+    useFocusEffect(
+        useCallback(() => {
+            requestLocation();
             fetchMyErrands();
-        }, 10000);
 
-        return () => {
-            if (pollingRef.current) clearInterval(pollingRef.current);
-        };
-    }, []);
+            // Poll every 30 seconds while screen is active
+            pollingRef.current = setInterval(() => {
+                fetchMyErrands();
+            }, 30000);
+
+            return () => {
+                if (pollingRef.current) {
+                    clearInterval(pollingRef.current);
+                    pollingRef.current = null;
+                }
+            };
+        }, [])
+    );
 
     useEffect(() => {
         const active = myErrands.find(e =>
@@ -592,7 +612,10 @@ export default function CustomerHome() {
                                     {usingGPS ? (
                                         <ActivityIndicator color="#2563EB" size="small" />
                                     ) : (
-                                        <Text style={styles.gpsButtonText}>📍 Use my current location</Text>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                                            <Image source={require('../../assets/images/location-icon.png')}  style={{ width: 15, height: 15 }} />
+                                            <Text style={styles.gpsButtonText}>Use my current location</Text>
+                                        </View>
                                     )}
                                 </TouchableOpacity>
 
@@ -860,7 +883,7 @@ export default function CustomerHome() {
 
                         <Text style={styles.successTitle}>Successful!</Text>
                         <Text style={styles.successMessage}>
-                            Your Errand has been sent out successfully,
+                            Your Errand has been sent out successfully,{"\n"}
                             check your notification for available errand pals.
                         </Text>
                         <View style={styles.successButton}>
