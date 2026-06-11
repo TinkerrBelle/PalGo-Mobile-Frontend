@@ -30,7 +30,23 @@ interface Errand {
     customer?: Customer;
 }
 
-const STATUS_TABS = ['All', 'Active', 'Completed', 'Cancelled'];
+interface ErrandApplication {
+    id: number;
+    errandId: number;
+    errandTitle: string;
+    errandAddress: string;
+    errandPrice: number;
+    errandStatus: string;
+    status: string;
+    message?: string;
+    createdAt: string;
+}
+
+
+
+
+
+const STATUS_TABS = ['All', 'Active', 'Completed', 'Pending', 'Cancelled'];
 
 const STATUS_COLORS: Record<string, string> = {
     Pending: '#F59E0B',
@@ -133,7 +149,14 @@ export default function PalErrands() {
     const [submittingReview, setSubmittingReview] = useState(false);
     const [reviewLoading, setReviewLoading] = useState(false);
 
-    useFocusEffect(useCallback(() => { fetchErrands(); }, []));
+    // Add state:
+    const [applications, setApplications] = useState<ErrandApplication[]>([]);
+    const [loadingApplications, setLoadingApplications] = useState(false);
+
+    useFocusEffect(useCallback(() => {
+        fetchErrands();
+        fetchApplications();
+    }, []));
 
     const fetchErrands = async () => {
         setLoading(true);
@@ -144,6 +167,19 @@ export default function PalErrands() {
             console.log('Error fetching errands:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    // Add fetch:
+    const fetchApplications = async () => {
+        setLoadingApplications(true);
+        try {
+            const response = await API.get('/Errand/my-applications');
+            setApplications(response.data);
+        } catch (error) {
+            console.log('Error fetching applications:', error);
+        } finally {
+            setLoadingApplications(false);
         }
     };
 
@@ -329,7 +365,92 @@ export default function PalErrands() {
             )}
 
             {/* Errand List */}
-            {loading ? (
+            {activeTab === 'Pending' ? (
+                loadingApplications ? (
+                    <ActivityIndicator color="#10B981" style={{ marginTop: 40 }} />
+                ) : applications.length === 0 ? (
+                    <View style={styles.emptyState}>
+                        <Text style={styles.emptyStateIcon}>📋</Text>
+                        <Text style={styles.emptyStateText}>No pending applications</Text>
+                    </View>
+                ) : (
+                    <FlatList
+                        data={applications}
+                        keyExtractor={item => item.id.toString()}
+                        contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+                        showsVerticalScrollIndicator={false}
+                        onRefresh={fetchApplications}
+                        refreshing={loadingApplications}
+                        renderItem={({ item }) => (
+                            <View style={[styles.errandCard, { borderRadius: 16 }]}>
+                                <View style={{ padding: 16 }}>
+                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={styles.errandCardTitle} numberOfLines={1}>
+                                                {item.errandTitle}
+                                            </Text>
+                                            <Text style={styles.errandCardAddress} numberOfLines={1}>
+                                                📍 {item.errandAddress}
+                                            </Text>
+                                            <Text style={styles.errandCardDate}>
+                                                Applied {(() => {
+                                                const diff = Date.now() - new Date(item.createdAt).getTime();
+                                                const mins = Math.floor(diff / 60000);
+                                                if (mins < 1) return 'just now';
+                                                if (mins < 60) return `${mins}m ago`;
+                                                return `${Math.floor(mins / 60)}h ago`;
+                                            })()}
+                                            </Text>
+                                        </View>
+                                        <View style={{ alignItems: 'flex-end', gap: 6 }}>
+                                            <Text style={styles.errandCardPrice}>
+                                                ₦{item.errandPrice.toLocaleString()}
+                                            </Text>
+                                            <View style={{
+                                                backgroundColor: '#FEF3C7', borderRadius: 20,
+                                                paddingHorizontal: 10, paddingVertical: 3,
+                                            }}>
+                                                <Text style={{ fontSize: 10, fontFamily: 'Nunito_700Bold', color: '#92400E' }}>
+                                                    Waiting...
+                                                </Text>
+                                            </View>
+                                        </View>
+                                    </View>
+                                    {item.message ? (
+                                        <Text style={{
+                                            fontSize: 11, fontFamily: 'Nunito_400Regular',
+                                            color: '#6B7280', marginTop: 8, fontStyle: 'italic',
+                                        }}>
+                                            Your message: "{item.message}"
+                                        </Text>
+                                    ) : null}
+                                </View>
+                            </View>
+                        )}
+                    />
+                )
+            ) : (
+                // existing FlatList for other tabs
+                loading ? (
+                    <ActivityIndicator color="#10B981" style={{ marginTop: 40 }} />
+                ) : filteredErrands.length === 0 ? (
+                    <View style={styles.emptyState}>
+                        <Text style={styles.emptyStateIcon}>📋</Text>
+                        <Text style={styles.emptyStateText}>No errands found</Text>
+                    </View>
+                ) : (
+                    <FlatList
+                        data={filteredErrands}
+                        keyExtractor={item => item.id.toString()}
+                        renderItem={renderErrandCard}
+                        contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+                        showsVerticalScrollIndicator={false}
+                        onRefresh={fetchErrands}
+                        refreshing={loading}
+                    />
+                )
+            )}
+            {/*{loading ? (
                 <ActivityIndicator color="#10B981" style={{ marginTop: 40 }} />
             ) : filteredErrands.length === 0 ? (
                 <View style={styles.emptyState}>
@@ -346,7 +467,7 @@ export default function PalErrands() {
                     onRefresh={fetchErrands}
                     refreshing={loading}
                 />
-            )}
+            )}*/}
 
             {/* FILTER MODAL */}
             <Modal

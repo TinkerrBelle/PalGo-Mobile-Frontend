@@ -1,7 +1,7 @@
 import {
     View, Text, TouchableOpacity, StyleSheet,
     ScrollView, Alert, Dimensions, PanResponder,
-    Image, ImageBackground, ActivityIndicator
+    Image, ImageBackground, ActivityIndicator, Modal, TextInput
 } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useState, useEffect, useRef } from 'react';
@@ -36,6 +36,11 @@ interface Errand {
 
 export default function PalHome() {
     const { user, logout } = useAuth();
+
+    const [applyingToErrand, setApplyingToErrand] = useState<number | null>(null);
+    const [showApplyModal, setShowApplyModal] = useState(false);
+    const [applyMessage, setApplyMessage] = useState('');
+    const [selectedApplyErrand, setSelectedApplyErrand] = useState<Errand | null>(null);
 
     const [location, setLocation] = useState<Location.LocationObject | null>(null);
     const [availableErrands, setAvailableErrands] = useState<Errand[]>([]);
@@ -129,33 +134,31 @@ export default function PalHome() {
         }
     };
 
-    const handleAcceptErrand = async (errand: Errand) => {
-        setActionLoading(true);
-        try {
-            await API.post(`/Errand/${errand.id}/pal-accept`);
-            Alert.alert(
-                'Errand Accepted!',
-                'Waiting for the customer to confirm. You\'ll be notified once they accept.'
-            );
-            setSelectedErrand(null);
-            fetchData();
-        } catch (error: any) {
-            Alert.alert('Error', error.response?.data?.message || 'Failed to accept errand');
-        } finally {
-            setActionLoading(false);
-        }
+    const handleApplyToErrand = async (errand: Errand) => {
+        setSelectedApplyErrand(errand);
+        setApplyMessage('');
+        setShowApplyModal(true);
     };
 
-    const handleDeclineErrand = async (errand: Errand) => {
-        setActionLoading(true);
+    const handleSubmitApplication = async () => {
+        if (!selectedApplyErrand) return;
+        setApplyingToErrand(selectedApplyErrand.id);
         try {
-            await API.post(`/Errand/${errand.id}/pal-decline`);
-            setSelectedErrand(null);
+            await API.post(`/Errand/${selectedApplyErrand.id}/apply`, {
+                message: applyMessage,
+                palLatitude: location?.coords.latitude,    // ← ADD
+                palLongitude: location?.coords.longitude,  // ← ADD
+            });
+            Alert.alert('Applied!', 'Your application has been submitted. The customer will review and accept.');
+            setShowApplyModal(false);
+            setApplyMessage('');
+            setSelectedApplyErrand(null);
             fetchData();
         } catch (error: any) {
-            Alert.alert('Error', error.response?.data?.message || 'Failed to decline errand');
+            console.log('error', error.response?.data?.message);
+            Alert.alert('Error', error.response.data.message || 'Failed to apply');
         } finally {
-            setActionLoading(false);
+            setApplyingToErrand(null);
         }
     };
 
@@ -399,36 +402,27 @@ export default function PalHome() {
                                     {selectedErrand?.id === errand.id && (
                                         <View style={styles.errandCardExpanded}>
                                             {errand.description ? (
-                                                <Text style={styles.errandCardDescription}>
-                                                    {errand.description}
-                                                </Text>
+                                                <Text style={styles.errandCardDescription}>{errand.description}</Text>
                                             ) : null}
-
                                             <Text style={styles.errandCardCustomer}>
                                                 👤 {errand.customer?.firstName} {errand.customer?.lastName}
                                             </Text>
-
                                             <View style={styles.errandActions}>
                                                 <TouchableOpacity
                                                     style={styles.declineBtn}
-                                                    onPress={() => handleDeclineErrand(errand)}
-                                                    disabled={actionLoading}
+                                                    onPress={() => setSelectedErrand(null)}
                                                 >
-                                                    {actionLoading ? (
-                                                        <ActivityIndicator color="#EF4444" size="small" />
-                                                    ) : (
-                                                        <Text style={styles.declineBtnText}>Decline</Text>
-                                                    )}
+                                                    <Text style={styles.declineBtnText}>Dismiss</Text>
                                                 </TouchableOpacity>
                                                 <TouchableOpacity
                                                     style={styles.acceptBtn}
-                                                    onPress={() => handleAcceptErrand(errand)}
-                                                    disabled={actionLoading}
+                                                    onPress={() => handleApplyToErrand(errand)}
+                                                    disabled={applyingToErrand === errand.id}
                                                 >
-                                                    {actionLoading ? (
+                                                    {applyingToErrand === errand.id ? (
                                                         <ActivityIndicator color="white" size="small" />
                                                     ) : (
-                                                        <Text style={styles.acceptBtnText}>Accept ✓</Text>
+                                                        <Text style={styles.acceptBtnText}>Apply ✓</Text>
                                                     )}
                                                 </TouchableOpacity>
                                             </View>
@@ -440,6 +434,92 @@ export default function PalHome() {
                     )}
                 </ScrollView>
             </View>
+
+
+            {/* APPLY MODAL */}
+            <Modal
+                visible={showApplyModal}
+                transparent
+                animationType="slide"
+                onRequestClose={() => setShowApplyModal(false)}
+            >
+                <TouchableOpacity
+                    style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' }}
+                    activeOpacity={1}
+                    onPress={() => setShowApplyModal(false)}
+                />
+                <View style={{
+                    backgroundColor: 'white',
+                    borderTopLeftRadius: 24,
+                    borderTopRightRadius: 24,
+                    padding: 24,
+                    paddingBottom: 40,
+                }}>
+                    <Text style={{
+                        fontSize: 16, fontFamily: 'Nunito_700Bold',
+                        color: '#111827', marginBottom: 4,
+                    }}>
+                        Apply for Errand
+                    </Text>
+                    <Text style={{
+                        fontSize: 13, fontFamily: 'Nunito_500Medium',
+                        color: '#6B7280', marginBottom: 16,
+                    }}>
+                        {selectedApplyErrand?.title} — ₦{selectedApplyErrand?.price.toLocaleString()}
+                    </Text>
+
+                    <Text style={{
+                        fontSize: 12, fontFamily: 'Nunito_600SemiBold',
+                        color: '#374151', marginBottom: 8,
+                    }}>
+                        Add a message (optional)
+                    </Text>
+                    <TextInput
+                        placeholder="Tell the customer why you're a good fit..."
+                        placeholderTextColor="#9CA3AF"
+                        value={applyMessage}
+                        onChangeText={setApplyMessage}
+                        multiline
+                        numberOfLines={3}
+                        style={{
+                            backgroundColor: '#F9FAFB', borderRadius: 12,
+                            padding: 12, minHeight: 80, fontSize: 13,
+                            fontFamily: 'Nunito_500Medium', color: '#111827',
+                            textAlignVertical: 'top', marginBottom: 16,
+                        }}
+                    />
+
+                    <View style={{ flexDirection: 'row', gap: 12 }}>
+                        <TouchableOpacity
+                            style={{
+                                flex: 1, borderWidth: 1, borderColor: '#D1D5DB',
+                                borderRadius: 12, paddingVertical: 12, alignItems: 'center',
+                            }}
+                            onPress={() => setShowApplyModal(false)}
+                        >
+                            <Text style={{ fontSize: 14, fontFamily: 'Nunito_600SemiBold', color: '#6B7280' }}>
+                                Cancel
+                            </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={{
+                                flex: 1, backgroundColor: '#10B981',
+                                borderRadius: 12, paddingVertical: 12, alignItems: 'center',
+                            }}
+                            onPress={handleSubmitApplication}
+                            disabled={!!applyingToErrand}
+                        >
+                            {applyingToErrand ? (
+                                <ActivityIndicator color="white" size="small" />
+                            ) : (
+                                <Text style={{ fontSize: 14, fontFamily: 'Nunito_700Bold', color: 'white' }}>
+                                    Submit Application
+                                </Text>
+                            )}
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 }

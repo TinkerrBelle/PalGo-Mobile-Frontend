@@ -10,12 +10,14 @@ import { useFocusEffect } from 'expo-router';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Platform } from 'react-native';
 import {COLORS} from "@/constants/colors";
+import * as Location from 'expo-location';
 
 interface Pal {
     id: string;
     firstName: string;
     lastName: string;
     profileImageUrl?: string;
+    averageRating?: string;
 }
 
 interface Errand {
@@ -23,13 +25,32 @@ interface Errand {
     title: string;
     description: string;
     address: string;
+    latitude: number;
+    longitude: number;
     price: number;
     status: string;
     category: string;
     createdAt: string;
     completedAt?: string;
+    acceptedAt?: string;      // ← ADD (maps to AcceptedByCustomerAt)
     pal?: Pal;
 }
+
+interface PalApplication {
+    applicationId: number;
+    palId: string;
+    firstName: string;
+    lastName: string;
+    profileImageUrl?: string;
+    message?: string;
+    appliedAt: string;
+    averageRating: number;
+    totalReviews: number;
+    palLatitude?: number;
+    palLongitude?: number;
+}
+
+
 
 const STATUS_TABS = ['Completed', 'Active', 'Pending', 'Cancelled'];
 // const STATUS_TABS = ['All', 'Pending', 'Active', 'Completed', 'Cancelled'];
@@ -138,8 +159,62 @@ export default function CustomerErrands() {
     // Date Picker state on iOS
     const [showDatePicker, setShowDatePicker] = useState(false);
 
+    // Add to state:
+    const [applications, setApplications] = useState<PalApplication[]>([]);
+    const [loadingApplications, setLoadingApplications] = useState(false);
+    const [showApplications, setShowApplications] = useState(false);
+    const [selectedPendingErrand, setSelectedPendingErrand] = useState<Errand | null>(null);
+    const [acceptingPal, setAcceptingPal] = useState<number | null>(null);
 
-    useFocusEffect(useCallback(() => { fetchErrands(); }, []));
+    // Add to state
+    const [errandApplications, setErrandApplications] = useState<Record<number, PalApplication[]>>({});
+    // const [loadingApplications, setLoadingApplications] = useState<Record<number, boolean>>({});
+    const [expandedErrandId, setExpandedErrandId] = useState<number | null>(null);
+    // const [acceptingPal, setAcceptingPal] = useState<number | null>(null);
+    const [customerLocation, setCustomerLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+
+    useFocusEffect(useCallback(() => {
+        fetchErrands();
+    }, []));
+
+    // Get customer location on mount
+    useEffect(() => {
+        (async () => {
+            try {
+                const { status } = await Location.requestForegroundPermissionsAsync();
+                if (status !== 'granted') return;
+                const loc = await Location.getCurrentPositionAsync({});
+                setCustomerLocation({
+                    latitude: loc.coords.latitude,
+                    longitude: loc.coords.longitude,
+                });
+            } catch { }
+        })();
+    }, []);
+
+    const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): string => {
+        const R = 6371;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const d = R * c;
+        return d < 1 ? `${Math.round(d * 1000)}m` : `${d.toFixed(1)}km`;
+    };
+
+    const formatTimeAgo = (dateStr: string): string => {
+        // Force UTC parsing by appending Z if not present
+        const dateString = dateStr.endsWith('Z') ? dateStr : dateStr + 'Z';
+        const diff = Date.now() - new Date(dateString).getTime();
+        const mins = Math.floor(diff / 60000);
+        if (mins < 1) return 'Just now';
+        if (mins < 60) return `${mins}m ago`;
+        const hrs = Math.floor(mins / 60);
+        if (hrs < 24) return `${hrs}h ago`;
+        return `${Math.floor(hrs / 24)}d ago`;
+    };
 
     const fetchErrands = async () => {
         setLoading(true);
@@ -170,6 +245,80 @@ export default function CustomerErrands() {
         } catch { } finally {
             setReviewLoading(false);
         }
+    };
+
+    const fetchApplications = async (errandId: number) => {
+        setLoadingApplications(true);
+        try {
+            const response = await API.get(`/Errand/${errandId}/applications`);
+            setApplications(response.data);
+        } catch (error) {
+            console.log('Error fetching applications:', error);
+        } finally {
+            setLoadingApplications(false);
+        }
+    };
+
+    /*const fetchApplicationsForErrand = async (errandId: number) => {
+        setLoadingApplications(prev => ({ ...prev, [errandId]: true }));
+        try {
+            const response = await API.get(`/Errand/${errandId}/applications`);
+            setErrandApplications(prev => ({ ...prev, [errandId]: response.data }));
+        } catch (error) {
+            console.log('Error fetching applications:', error);
+        } finally {
+            setLoadingApplications(prev => ({ ...prev, [errandId]: false }));
+        }
+    };*/
+
+    /*const handleAcceptPalApplication = async (errandId: number, applicationId: number) => {
+        Alert.alert('Accept Pal', 'Are you sure you want to accept this Pal?', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+                text: 'Accept', onPress: async () => {
+                    setAcceptingPal(applicationId);
+                    try {
+                        await API.post(`/Errand/${errandId}/accept-application`, { applicationId });
+                        Alert.alert('Success', 'Pal accepted! Your errand is now active.');
+                        setExpandedErrandId(null);
+                        setErrandApplications({});
+                        fetchErrands();
+                    } catch (error: any) {
+                        Alert.alert('Error', error.response?.data?.message || 'Failed to accept');
+                    } finally {
+                        setAcceptingPal(null);
+                    }
+                }
+            }
+        ]);
+    };*/
+
+    const handleAcceptPalApplication = async (applicationId: number) => {
+        if (!selectedPendingErrand) return;
+        Alert.alert(
+            'Accept Pal',
+            'Are you sure you want to accept this Pal?',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Accept', onPress: async () => {
+                        setAcceptingPal(applicationId);
+                        try {
+                            await API.post(`/Errand/${selectedPendingErrand.id}/accept-application`, {
+                                applicationId,
+                            });
+                            Alert.alert('Success', 'Pal accepted! Your errand is now active.');
+                            setShowApplications(false);
+                            fetchErrands();
+                        } catch (error: any) {
+                            Alert.alert('Error', error.response?.data?.message || 'Failed to accept');
+                        } finally {
+                            setAcceptingPal(null);
+                        }
+                    }
+                }
+            ]
+        );
     };
 
     const openDetail = (errand: Errand) => {
@@ -321,53 +470,46 @@ export default function CustomerErrands() {
     const isCancelStatus = (status: string) => ['Cancelled'].includes(status);
 
     const renderErrandCard = ({ item }: { item: Errand }) => (
-        /*<View style={styles.errandCard}>
-            <TouchableOpacity style={styles.errandCardMain} onPress={() => openDetail(item)}>
-                <View style={styles.errandCardLeft}>
-                    <Text style={styles.errandCardTitle} numberOfLines={1}>{item.title}</Text>
-                    <Text style={styles.errandCardAddress} numberOfLines={1}>📍 {item.address}</Text>
-                    <Text style={styles.errandCardDate}>🕐 {formatDate(item.createdAt)}</Text>
-                </View>
-                <View style={styles.errandCardRight}>
-                    <Text style={styles.errandCardPrice}>₦{item.price.toLocaleString()}</Text>
-                    <View style={[styles.statusBadge, { backgroundColor: STATUS_COLORS[item.status] || '#6B7280' }]}>
-                        <Text style={styles.statusBadgeText}>{item.status}</Text>
-                    </View>
-                </View>
-            </TouchableOpacity>
-
-            {isActiveStatus(item.status) && (
-                <View style={styles.cardActions}>
-                    <TouchableOpacity
-                        style={styles.completeCardBtn}
-                        onPress={() => handleCompleteErrand(item)}
-                    >
-                        <Text style={styles.completeCardBtnText}>✓ Completed</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={styles.viewDetailsBtn}
-                        onPress={() => openDetail(item)}
-                    >
-                        <Text style={styles.viewDetailsBtnText}>View Details</Text>
-                    </TouchableOpacity>
-                </View>
-            )}
-        </View>*/
-        <View style={[styles.errandCard, isActiveStatus(item.status) && {borderWidth: 1, borderColor: COLORS.secondary, borderRadius: 20}]}>
+        <View style={[styles.errandCard,
+            isActiveStatus(item.status) && { borderWidth: 1, borderColor: COLORS.secondary, borderRadius: 20 },
+            isPendingStatus(item.status) && { borderRadius: 20 },
+        ]}>
             {isActiveStatus(item.status) ? (
-                <TouchableOpacity onPress={() => openDetail(item)}>
-                    <View style={styles.errandCardMain}>
+                <View>
+                    {/*<TouchableOpacity onPress={() => openDetail(item)}>*/}
+                    <View style={[styles.errandCardLeft, { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 6 }]}>
+                        <Text style={{ fontSize: 13, color: COLORS.header }}
+                              numberOfLines={1}>{item.title}</Text>
+                        <Text style={styles.errandCardDate}> - {formatDate(item.createdAt)}</Text>
+                    </View>
+                    <View style={[styles.errandCardMain, { paddingBottom: 0 }]}>
                         <View style={styles.errandCardLeft}>
-                            <Text style={styles.errandCardTitle} numberOfLines={1}>{item.title}</Text>
-                            {/*<Text style={styles.errandCardAddress} numberOfLines={1}>📍 {item.address}</Text>*/}
+                            <Text style={[styles.errandCardTitle, { fontFamily: 'Nunito_600SemiBold' }]} numberOfLines={1}>{item.pal?.firstName} {item.pal?.lastName}</Text>
                             <Text style={styles.errandCardDate}> - {formatDate(item.createdAt)}</Text>
                         </View>
                         <View style={styles.errandCardRight}>
-                            <Text style={[styles.errandCardPrice, isCancelStatus(item.status) && {color: COLORS.red}]}>₦{item.price.toLocaleString()}</Text>
-                            <Image source={require('../../assets/images/chevron_right.png')} style={{ width: 5, height: 12, alignSelf: 'center' }} />
-                            {/*<View style={[styles.statusBadge, { backgroundColor: STATUS_COLORS[item.status] || '#6B7280' }]}>*/}
-                            {/*    <Text style={styles.statusBadgeText}>{item.status}</Text>*/}
-                            {/*</View>*/}
+                            <Text style={[styles.errandCardPrice, isCancelStatus(item.status) && { color: COLORS.red }]}>
+                                ₦{item.price.toLocaleString()}
+                            </Text>
+                        </View>
+                    </View>
+                    <View style={styles.errandCardMain}>
+                        <View style={styles.errandCardLeft}>
+                            <Text style={[styles.errandCardPrice, { fontSize: 16 }, isCancelStatus(item.status) && { color: COLORS.red }]}>
+                                ₦{item.price.toLocaleString()}
+                                {/*{item.palLatitude && item.palLongitude && selectedPendingErrand?.latitude && selectedPendingErrand?.longitude && (
+                                    <Text style={styles.metaText}>
+                                        📍 {calculateDistance(selectedPendingErrand?.latitude, selectedPendingErrand?.longitude, item.palLatitude, item.palLongitude)}
+                                    </Text>
+                                )}*/}
+                            </Text>
+                        </View>
+                        <View style={styles.errandCardRight}>
+                            {item.acceptedAt && (
+                                <Text style={[styles.errandCardPrice, isCancelStatus(item.status) && { color: COLORS.red }]}>
+                                    {formatTimeAgo(item.acceptedAt)}
+                                </Text>
+                            )}
                         </View>
                     </View>
                     <View style={styles.cardActions}>
@@ -375,40 +517,303 @@ export default function CustomerErrands() {
                             style={styles.completeCardBtn}
                             onPress={() => handleCompleteErrand(item)}
                         >
-                            <ImageBackground source={require('../../assets/images/btn_6.png')} resizeMode={"stretch"} style={styles.cardActionsBtn}>
-
-                            <Text style={styles.completeCardBtnText}>Completed</Text>
+                            <ImageBackground source={require('../../assets/images/btn_6.png')}
+                                             resizeMode="stretch" style={styles.cardActionsBtn}>
+                                <Text style={styles.completeCardBtnText}>Completed</Text>
                             </ImageBackground>
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={styles.viewDetailsBtn}
                             onPress={() => openDetail(item)}
                         >
-                            <ImageBackground source={require('../../assets/images/btn_5.png')} resizeMode={"stretch"} style={styles.cardActionsBtn}>
-
+                            <ImageBackground source={require('../../assets/images/btn_5.png')}
+                                             resizeMode="stretch" style={styles.cardActionsBtn}>
                                 <Text style={styles.viewDetailsBtnText}>View Details</Text>
                             </ImageBackground>
                         </TouchableOpacity>
                     </View>
-                </TouchableOpacity>
+                </View>
+            ) : isPendingStatus(item.status) ? (
+                // PENDING CARD — shows applicant count + view/accept buttons
+                <View>
+                    <View style={styles.errandCardMain}>
+                        <View style={styles.errandCardLeft}>
+                            <Text style={styles.errandCardTitle} numberOfLines={1}>{item.title}</Text>
+                            <Text style={styles.errandCardDate}> - {formatDate(item.createdAt)}</Text>
+                        </View>
+                        <View style={styles.errandCardRight}>
+                            <Text style={styles.errandCardPrice}>₦{item.price.toLocaleString()}</Text>
+                            <Image source={require('../../assets/images/chevron_right.png')}
+                                   style={{ width: 5, height: 12, alignSelf: 'center' }} />
+                        </View>
+                    </View>
+                    <View style={styles.cardActions}>
+                        <TouchableOpacity
+                            style={styles.viewDetailsBtn}
+                            onPress={() => openDetail(item)}
+                        >
+                            <ImageBackground source={require('../../assets/images/btn_5.png')}
+                                             resizeMode="stretch" style={styles.cardActionsBtn}>
+                                <Text style={styles.viewDetailsBtnText}>View Details</Text>
+                            </ImageBackground>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={styles.completeCardBtn}
+                            onPress={() => {
+                                setSelectedPendingErrand(item);
+                                fetchApplications(item.id);
+                                setShowApplications(true);
+                            }}
+                        >
+                            <ImageBackground source={require('../../assets/images/btn_6.png')}
+                                             resizeMode="stretch" style={styles.cardActionsBtn}>
+                                <Text style={styles.completeCardBtnText}>View Pals</Text>
+                            </ImageBackground>
+                        </TouchableOpacity>
+                    </View>
+                </View>
             ) : (
                 <TouchableOpacity style={styles.errandCardMain} onPress={() => openDetail(item)}>
                     <View style={styles.errandCardLeft}>
                         <Text style={styles.errandCardTitle} numberOfLines={1}>{item.title}</Text>
-                        {/*<Text style={styles.errandCardAddress} numberOfLines={1}>📍 {item.address}</Text>*/}
                         <Text style={styles.errandCardDate}> - {formatDate(item.createdAt)}</Text>
                     </View>
                     <View style={styles.errandCardRight}>
-                        <Text style={[styles.errandCardPrice, isCancelStatus(item.status) && {color: COLORS.red}]}>₦{item.price.toLocaleString()}</Text>
-                        <Image source={require('../../assets/images/chevron_right.png')} style={{ width: 5, height: 12, alignSelf: 'center' }} />
-                        {/*<View style={[styles.statusBadge, { backgroundColor: STATUS_COLORS[item.status] || '#6B7280' }]}>*/}
-                        {/*    <Text style={styles.statusBadgeText}>{item.status}</Text>*/}
-                        {/*</View>*/}
+                        <Text style={[styles.errandCardPrice, isCancelStatus(item.status) && { color: COLORS.red }]}>
+                            ₦{item.price.toLocaleString()}
+                        </Text>
+                        <Image source={require('../../assets/images/chevron_right.png')}
+                               style={{ width: 5, height: 12, alignSelf: 'center' }} />
                     </View>
                 </TouchableOpacity>
             )}
         </View>
     );
+/*
+    const renderErrandCard = ({ item }: { item: Errand }) => {
+        const isExpanded = expandedErrandId === item.id;
+        const apps = errandApplications[item.id] || [];
+        const isLoadingApps = loadingApplications[item.id];
+
+        return (
+            <View style={[styles.errandCard,
+                isActiveStatus(item.status) && { borderWidth: 1, borderColor: COLORS.secondary, borderRadius: 20 },
+                isPendingStatus(item.status) && isExpanded && { borderWidth: 1, borderColor: COLORS.primary, borderRadius: 20 }
+            ]}>
+                {isActiveStatus(item.status) ? (
+                    // ── ACTIVE CARD ──
+                    <TouchableOpacity onPress={() => openDetail(item)}>
+                        <View style={styles.errandCardMain}>
+                            <View style={styles.errandCardLeft}>
+                                <Text style={styles.errandCardTitle} numberOfLines={1}>{item.title}</Text>
+                                <Text style={styles.errandCardDate}> - {formatDate(item.createdAt)}</Text>
+                            </View>
+                            <View style={styles.errandCardRight}>
+                                <Text style={styles.errandCardPrice}>₦{item.price.toLocaleString()}</Text>
+                                <Image source={require('../../assets/images/chevron_right.png')}
+                                       style={{ width: 5, height: 12, alignSelf: 'center' }} />
+                            </View>
+                        </View>
+                        {/!* Active meta info *!/}
+                        <View style={{ flexDirection: 'row', gap: 12, paddingHorizontal: 16, paddingBottom: 8 }}>
+                            <Text style={styles.metaText}>
+                                🕐 Active {item.acceptedAt ? formatTimeAgo(item.acceptedAt) : ''}
+                            </Text>
+                            {item.pal && customerLocation && item.latitude && item.longitude && (
+                                <Text style={styles.metaText}>
+                                    📍 {calculateDistance(customerLocation.latitude, customerLocation.longitude, item.latitude, item.longitude)} away
+                                </Text>
+                            )}
+                        </View>
+                        <View style={styles.cardActions}>
+                            <TouchableOpacity style={styles.completeCardBtn} onPress={() => handleCompleteErrand(item)}>
+                                <ImageBackground source={require('../../assets/images/btn_6.png')}
+                                                 resizeMode="stretch" style={styles.cardActionsBtn}>
+                                    <Text style={styles.completeCardBtnText}>Completed</Text>
+                                </ImageBackground>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.viewDetailsBtn} onPress={() => openDetail(item)}>
+                                <ImageBackground source={require('../../assets/images/btn_5.png')}
+                                                 resizeMode="stretch" style={styles.cardActionsBtn}>
+                                    <Text style={styles.viewDetailsBtnText}>View Details</Text>
+                                </ImageBackground>
+                            </TouchableOpacity>
+                        </View>
+                    </TouchableOpacity>
+                ) : isPendingStatus(item.status) ? (
+                    // ── PENDING CARD with inline applicants ──
+                    <View>
+                        <TouchableOpacity
+                            style={styles.errandCardMain}
+                            onPress={() => {
+                                if (isExpanded) {
+                                    setExpandedErrandId(null);
+                                } else {
+                                    setExpandedErrandId(item.id);
+                                    if (!errandApplications[item.id]) {
+                                        fetchApplicationsForErrand(item.id);
+                                    }
+                                }
+                            }}
+                        >
+                            <View style={styles.errandCardLeft}>
+                                <Text style={styles.errandCardTitle} numberOfLines={1}>{item.title}</Text>
+                                <Text style={styles.errandCardDate}> - {formatDate(item.createdAt)}</Text>
+                            </View>
+                            <View style={styles.errandCardRight}>
+                                <Text style={styles.errandCardPrice}>₦{item.price.toLocaleString()}</Text>
+                                <Image
+                                    source={require('../../assets/images/chevron_right.png')}
+                                    style={{
+                                        width: 5, height: 12, alignSelf: 'center',
+                                        transform: [{ rotate: isExpanded ? '90deg' : '0deg' }]
+                                    }}
+                                />
+                            </View>
+                        </TouchableOpacity>
+
+                        {/!* Applicants inline *!/}
+                        {isExpanded && (
+                            <View style={{ paddingHorizontal: 12, paddingBottom: 12 }}>
+                                {isLoadingApps ? (
+                                    <ActivityIndicator color={COLORS.primary} style={{ paddingVertical: 16 }} />
+                                ) : apps.length === 0 ? (
+                                    <View style={{ paddingVertical: 16, alignItems: 'center' }}>
+                                        <Text style={{ fontSize: 11, color: '#9CA3AF', fontFamily: 'Nunito_500Medium' }}>
+                                            No applications yet. Pals will appear here once they apply.
+                                        </Text>
+                                    </View>
+                                ) : (
+                                    apps.map(app => (
+                                        <View key={app.applicationId} style={styles.applicantCard}>
+                                            {/!* Pal avatar + info *!/}
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                                                <View style={styles.applicantAvatar}>
+                                                    {app.profileImageUrl ? (
+                                                        <Image source={{ uri: app.profileImageUrl }}
+                                                               style={{ width: 40, height: 40, borderRadius: 20 }} />
+                                                    ) : (
+                                                        <Text style={{ fontSize: 16, fontFamily: 'Nunito_700Bold', color: 'white' }}>
+                                                            {app.firstName.charAt(0)}
+                                                        </Text>
+                                                    )}
+                                                </View>
+                                                <View style={{ flex: 1 }}>
+                                                    <Text style={{ fontSize: 13, fontFamily: 'Nunito_700Bold', color: COLORS.header }}>
+                                                        {app.firstName} {app.lastName}
+                                                    </Text>
+                                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                                        <Text style={{ color: '#F59E0B', fontSize: 11 }}>★</Text>
+                                                        <Text style={{ fontSize: 11, fontFamily: 'Nunito_600SemiBold', color: '#6B7280' }}>
+                                                            {app.totalReviews > 0
+                                                                ? `${Number(app.averageRating).toFixed(1)} (${app.totalReviews})`
+                                                                : 'No reviews'}
+                                                        </Text>
+                                                    </View>
+                                                </View>
+                                                <View style={{ alignItems: 'flex-end', gap: 2 }}>
+                                                    {app.palLatitude && app.palLongitude && item.latitude && item.longitude && (
+                                                        <Text style={styles.metaText}>
+                                                            📍 {calculateDistance(item.latitude, item.longitude, app.palLatitude, app.palLongitude)}
+                                                        </Text>
+                                                    )}
+                                                    <Text style={styles.metaText}>
+                                                        🕐 {formatTimeAgo(app.appliedAt)}
+                                                    </Text>
+                                                </View>
+                                            </View>
+
+                                            {/!* Message *!/}
+                                            {app.message ? (
+                                                <View style={styles.applicantMessage}>
+                                                    <Text style={{ fontSize: 11, fontFamily: 'Nunito_400Regular', color: '#374151', fontStyle: 'italic' }}>
+                                                        "{app.message}"
+                                                    </Text>
+                                                </View>
+                                            ) : null}
+
+                                            {/!* Buttons *!/}
+                                            <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                                                <TouchableOpacity
+                                                    style={styles.viewDetailsBtn}
+                                                    onPress={() => openDetail(item)}
+                                                >
+                                                    <ImageBackground source={require('../../assets/images/btn_5.png')}
+                                                                     resizeMode="stretch" style={styles.cardActionsBtn}>
+                                                        <Text style={styles.viewDetailsBtnText}>View Details</Text>
+                                                    </ImageBackground>
+                                                </TouchableOpacity>
+                                                <TouchableOpacity
+                                                    style={styles.completeCardBtn}
+                                                    onPress={() => handleAcceptPalApplication(item.id, app.applicationId)}
+                                                    disabled={acceptingPal === app.applicationId}
+                                                >
+                                                    <ImageBackground source={require('../../assets/images/btn_6.png')}
+                                                                     resizeMode="stretch" style={styles.cardActionsBtn}>
+                                                        {acceptingPal === app.applicationId ? (
+                                                            <ActivityIndicator color="white" size="small" />
+                                                        ) : (
+                                                            <Text style={styles.completeCardBtnText}>Accept</Text>
+                                                        )}
+                                                    </ImageBackground>
+                                                </TouchableOpacity>
+                                            </View>
+                                        </View>
+                                    ))
+                                )}
+                            </View>
+                        )}
+
+                        {/!* Bottom buttons row *!/}
+                        <View style={styles.cardActions}>
+                            <TouchableOpacity style={styles.viewDetailsBtn} onPress={() => openDetail(item)}>
+                                <ImageBackground source={require('../../assets/images/btn_5.png')}
+                                                 resizeMode="stretch" style={styles.cardActionsBtn}>
+                                    <Text style={styles.viewDetailsBtnText}>View Details</Text>
+                                </ImageBackground>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={styles.completeCardBtn}
+                                onPress={() => {
+                                    if (isExpanded) {
+                                        setExpandedErrandId(null);
+                                    } else {
+                                        setExpandedErrandId(item.id);
+                                        if (!errandApplications[item.id]) {
+                                            fetchApplicationsForErrand(item.id);
+                                        }
+                                    }
+                                }}
+                            >
+                                <ImageBackground source={require('../../assets/images/btn_6.png')}
+                                                 resizeMode="stretch" style={styles.cardActionsBtn}>
+                                    <Text style={styles.completeCardBtnText}>
+                                        {isExpanded ? 'Hide Pals' : `View Pals`}
+                                    </Text>
+                                </ImageBackground>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                ) : (
+                    // ── OTHER CARDS (Completed, Cancelled) ──
+                    <TouchableOpacity style={styles.errandCardMain} onPress={() => openDetail(item)}>
+                        <View style={styles.errandCardLeft}>
+                            <Text style={styles.errandCardTitle} numberOfLines={1}>{item.title}</Text>
+                            <Text style={styles.errandCardDate}> - {formatDate(item.createdAt)}</Text>
+                        </View>
+                        <View style={styles.errandCardRight}>
+                            <Text style={[styles.errandCardPrice, isCancelStatus(item.status) && { color: COLORS.red }]}>
+                                ₦{item.price.toLocaleString()}
+                            </Text>
+                            <Image source={require('../../assets/images/chevron_right.png')}
+                                   style={{ width: 5, height: 12, alignSelf: 'center' }} />
+                        </View>
+                    </TouchableOpacity>
+                )}
+            </View>
+        );
+    };
+*/
 
     return (
         <View style={styles.container}>
@@ -511,7 +916,7 @@ export default function CustomerErrands() {
             >
                 <View style={styles.filterContainer}>
                     <View style={styles.filterHeader}>
-                        <TouchableOpacity onPress={() => setShowFilter(false)} style={{ padding: 10, width: 52 }}>
+                        <TouchableOpacity onPress={() => setShowFilter(false)} style={styles.backButton}>
                             {/*<Text style={styles.backBtn}>‹</Text>*/}
                             <Image
                                 source={require('../../assets/images/back-button.png')}
@@ -523,7 +928,7 @@ export default function CustomerErrands() {
                         {/*<View style={{ width: 40, backgroundColor: 'red' }} />*/}
                     </View>
 
-                    <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120 }}>
+                    <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 150 }}>
                         {/* Preset chips */}
                         <ScrollView
                             horizontal
@@ -611,14 +1016,46 @@ export default function CustomerErrands() {
 
                         {/* Preview of selected preset */}
                         {filterPreset !== 'Custom Period' && (
-                            <View style={styles.presetPreview}>
-                                <Text style={styles.presetPreviewText}>
-                                    {(() => {
-                                        const { start, end } = getPresetDates(filterPreset);
-                                        return `${start.toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })} → ${end.toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })}`;
-                                    })()}
-                                </Text>
+                            <ImageBackground
+                                // style={styles.dateInput}
+                                             source={require('../../assets/images/input-bg-tall.png')}
+                                             style={{ height: Platform.OS === 'ios' ? 85 : 75, paddingHorizontal: 16, paddingVertical: Platform.OS === 'ios' ? 21 : 19 }}
+                                             resizeMode='stretch'
+                            >
+                            <View>
+                                <Text style={styles.dateInputLabel}>Date range</Text>
+                                <View style={styles.presetPreview}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 15, justifyContent: 'center' }}>
+                                        {/*<Text style={styles.dateInputText}>
+                                            {(() => {
+                                                const { start, end } = getPresetDates(filterPreset);
+                                                return `${start.toLocaleDateString('en-NG', { day: 'numeric', month: 'long', year: 'numeric' })} → ${end.toLocaleDateString('en-NG', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+                                            })()}
+                                        </Text>*/}
+                                        <Text style={styles.dateInputText}>
+                                            {(() => {
+                                                const { start } = getPresetDates(filterPreset);
+                                                return `${start.toLocaleDateString('en-NG', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+                                            })()}
+                                        </Text>
+                                        <Image
+                                            source={require('../../assets/images/chevron_down_2.png')}
+                                            style={{ width: 6, height: 12, }}
+                                            resizeMode="contain"
+                                        />
+                                        <Text style={styles.dateInputText}>
+                                            {(() => {
+                                                const { end } = getPresetDates(filterPreset);
+                                                return `${end.toLocaleDateString('en-NG', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+                                            })()}
+                                        </Text>
+                                    </View>
+                                    <Image source={require('../../assets/images/calendar_icon.png')} style={{
+                                        width: 13, height: 15,
+                                    }}/>
+                                </View>
                             </View>
+                            </ImageBackground>
                         )}
                     </ScrollView>
 
@@ -714,13 +1151,15 @@ export default function CustomerErrands() {
             <Modal visible={showDetail} animationType="slide" onRequestClose={() => setShowDetail(false)}>
                 <View style={styles.detailContainer}>
                     <View style={styles.detailHeader}>
-                        <TouchableOpacity onPress={() => setShowDetail(false)}>
-                            <Text style={styles.backBtn}>‹ Back</Text>
+                        <TouchableOpacity onPress={() => setShowDetail(false)} style={styles.backButton}>
+                            <Image
+                                source={require('../../assets/images/back-button.png')}
+                                style={{ width: 32, height: 32, }}
+                                resizeMode="contain"
+                            />
                         </TouchableOpacity>
                         <Text style={styles.detailHeaderTitle}>{selectedErrand?.status}</Text>
-                        <View style={{ width: 50 }} />
                     </View>
-
                     <ScrollView
                         contentContainerStyle={{ padding: 20, paddingBottom: 60 }}
                         showsVerticalScrollIndicator={false}
@@ -729,29 +1168,45 @@ export default function CustomerErrands() {
                         {selectedErrand && (
                             <>
                                 {selectedErrand.pal && (
-                                    <View style={styles.palCard}>
-                                        <View style={styles.palCardAvatar}>
-                                            {selectedErrand.pal.profileImageUrl ? (
-                                                <Image source={{ uri: selectedErrand.pal.profileImageUrl }} style={styles.palAvatarImage} />
-                                            ) : (
-                                                <Text style={styles.palAvatarInitial}>{selectedErrand.pal.firstName.charAt(0)}</Text>
-                                            )}
-                                        </View>
-                                        <View style={{ flex: 1 }}>
-                                            <Text style={styles.palName}>{selectedErrand.pal.firstName} {selectedErrand.pal.lastName}</Text>
-                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
-                                                <Text style={{ color: '#F59E0B', fontSize: 13 }}>★</Text>
-                                                <Text style={{ fontSize: 12, fontFamily: 'Nunito_600SemiBold', color: '#374151' }}>
-                                                    {palRating
-                                                        ? `${Number(palRating.averageRating).toFixed(1)} (${Number(palRating.totalReviews)} reviews)`
-                                                        : 'No reviews yet'
-                                                    }
-                                                </Text>
+                                    <View>
+                                        <View style={styles.palCard}>
+                                            <View style={styles.palCardAvatar}>
+                                                {selectedErrand.pal.profileImageUrl ? (
+                                                    <Image source={{ uri: selectedErrand.pal.profileImageUrl }} style={styles.palAvatarImage} />
+                                                ) : (
+                                                    <Text style={styles.palAvatarInitial}>{selectedErrand.pal.firstName.charAt(0)}</Text>
+                                                )}
                                             </View>
-                                            <Text style={styles.palLabel}>Your Pal</Text>
+                                            <View style={{ flex: 1, gap: 7 }}>
+                                                <Text style={styles.palName}>{selectedErrand.pal.firstName} {selectedErrand.pal.lastName}</Text>
+                                                <ImageBackground source={require('../../assets/images/input-bg-tiny.png')}
+                                                                 style={{ width: 57, height: 20 }}
+                                                                 resizeMode="stretch">
+                                                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, height: 20, }}>
+                                                        {/*<Text style={{ color: '#F59E0B', fontSize: 13 }}>★</Text>*/}
+                                                        <Image
+                                                            source={require('../../assets/images/star_icon.png')}
+                                                            style={{ width: 10, height: 10, }}
+                                                            resizeMode="contain"
+                                                        />
+                                                        <Text style={{ fontSize: 10, fontFamily: 'Nunito_600SemiBold', color: COLORS.header }}>
+                                                            {palRating
+                                                                ? `${Number(palRating.averageRating).toFixed(1)}`
+                                                                // ? `${Number(palRating.averageRating).toFixed(1)} (${Number(palRating.totalReviews)} reviews)`
+                                                                : '0'
+                                                            }
+                                                        </Text>
+                                                    </View>
+                                                </ImageBackground>
+                                                {/*<Text style={styles.palLabel}>Your Pal</Text>*/}
+                                            </View>
+                                            {/*<View style={[styles.statusBadge, { backgroundColor: STATUS_COLORS[selectedErrand.status] }]}>
+                                                <Text style={styles.statusBadgeText}>{selectedErrand.status}</Text>
+                                            </View>*/}
                                         </View>
-                                        <View style={[styles.statusBadge, { backgroundColor: STATUS_COLORS[selectedErrand.status] }]}>
-                                            <Text style={styles.statusBadgeText}>{selectedErrand.status}</Text>
+                                        <View style={styles.statusBadge}>
+                                            <Text style={styles.statusBadgeText}>{selectedErrand.status}:</Text>
+                                            <Text style={styles.statusBadgeText}>{selectedErrand.completedAt}</Text>
                                         </View>
                                     </View>
                                 )}
@@ -759,28 +1214,33 @@ export default function CustomerErrands() {
                                 <Text style={styles.sectionTitle}>Errand Details</Text>
                                 <View style={styles.detailCard}>
                                     <View style={styles.detailRow}>
-                                        <Text style={styles.detailIcon}>📌</Text>
+                                        <Image style={styles.detailIcon} resizeMode="contain"
+                                            source={require('../../assets/images/bullet_icon.png')}/>
                                         <Text style={styles.detailText}>{selectedErrand.title}</Text>
                                     </View>
                                     {selectedErrand.description ? (
                                         <View style={styles.detailRow}>
-                                             <Text style={styles.detailIcon}>📝</Text>
+                                            <Image style={styles.detailIcon} resizeMode="contain"
+                                                   source={require('../../assets/images/bullet_icon.png')}/>
                                             <Text style={styles.detailText}>{selectedErrand.description}</Text>
                                         </View>
                                     ) : null}
                                     <View style={styles.detailRow}>
-                                        <Text style={styles.detailIcon}>📍</Text>
+                                        <Image style={styles.detailIcon} resizeMode="contain"
+                                               source={require('../../assets/images/bullet_icon.png')}/>
                                         <Text style={styles.detailText}>{selectedErrand.address}</Text>
                                     </View>
                                     <View style={styles.detailRow}>
-                                        <Text style={styles.detailIcon}>🕐</Text>
+                                        <Image style={styles.detailIcon} resizeMode="contain"
+                                               source={require('../../assets/images/bullet_icon.png')}/>
                                         <Text style={styles.detailText}>
                                             {formatDate(selectedErrand.createdAt)} at {formatTime(selectedErrand.createdAt)}
                                         </Text>
                                     </View>
                                     {selectedErrand.completedAt && (
                                         <View style={styles.detailRow}>
-                                            <Text style={styles.detailIcon}>✅</Text>
+                                            <Image style={styles.detailIcon} resizeMode="contain"
+                                                   source={require('../../assets/images/bullet_icon.png')}/>
                                             <Text style={styles.detailText}>
                                                 Completed: {formatDate(selectedErrand.completedAt)} at {formatTime(selectedErrand.completedAt)}
                                             </Text>
@@ -876,12 +1336,151 @@ export default function CustomerErrands() {
                     </ScrollView>
                 </View>
             </Modal>
+
+            {/* PAL APPLICATIONS MODAL */}
+            <Modal
+                visible={showApplications}
+                animationType="slide"
+                onRequestClose={() => setShowApplications(false)}
+            >
+                <View style={{ flex: 1, backgroundColor: COLORS.background }}>
+                    {/* Header */}
+                    {/*<View style={{
+                        paddingTop: 56, paddingBottom: 16, paddingHorizontal: 20,
+                        backgroundColor: 'white', borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
+                        flexDirection: 'row', alignItems: 'center',
+                    }}>*/}
+                    <View style={styles.palAppHeader}>
+                        <TouchableOpacity onPress={() => setShowApplications(false)} style={styles.backButton}>
+                            <Image source={require('../../assets/images/back-button.png')}
+                                   style={{ width: 32, height: 32 }} resizeMode="contain" />
+                        </TouchableOpacity>
+                        <View style={{ paddingLeft: 20 }}>
+                            <Text style={styles.palAppTitle}>
+                                Pal Applicants
+                            </Text>
+                            <Text style={styles.palAppSubtitle}>
+                                {selectedPendingErrand?.title}
+                            </Text>
+                        </View>
+                    </View>
+
+                    {loadingApplications ? (
+                        <ActivityIndicator color={COLORS.primary} style={{ marginTop: 40 }} />
+                    ) : applications.length === 0 ? (
+                        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+                            <Image source={require('../../assets/images/no_errands.png')} style={{
+                                width: Platform.OS === 'ios' ? 334 : 274, height: Platform.OS === 'ios' ? 334 : 274,
+                            }}/>
+                            <Text style={styles.emptyStateHeader}>No applications yet</Text>
+                            <Text style={styles.emptyStateText}>Pals will appear here once they apply</Text>
+                        </View>
+                    ) : (
+                        <FlatList
+                            data={applications}
+                            keyExtractor={item => item.applicationId.toString()}
+                            contentContainerStyle={{ padding: 16 }}
+                            renderItem={({ item }) => (
+                                <View style={[styles.errandCard, { borderRadius: 20 }]}>
+                                    {/* Pal info row */}
+                                    <View style={styles.errandCardMain}>
+                                        <View style={{
+                                            width: 48, height: 48, borderRadius: 24,
+                                            backgroundColor: '#10B981', alignItems: 'center',
+                                            justifyContent: 'center', overflow: 'hidden',
+                                        }}>
+                                            {item.profileImageUrl ? (
+                                                <Image source={{ uri: item.profileImageUrl }}
+                                                       style={{ width: 48, height: 48, borderRadius: 24 }} />
+                                            ) : (
+                                                <Text style={{ fontSize: 20, fontFamily: 'Nunito_700Bold', color: 'white' }}>
+                                                    {item.firstName.charAt(0)}
+                                                </Text>
+                                            )}
+                                        </View>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={{ fontSize: 15, fontFamily: 'Nunito_700Bold', color: '#111827' }}>
+                                                {item.firstName} {item.lastName}
+                                            </Text>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                                <Text style={{ color: '#F59E0B', fontSize: 13 }}>★</Text>
+                                                <Text style={{ fontSize: 12, fontFamily: 'Nunito_600SemiBold', color: '#374151' }}>
+                                                    {item.totalReviews > 0
+                                                        ? `${Number(item.averageRating).toFixed(1)} (${item.totalReviews} reviews)`
+                                                        : 'No reviews yet'
+                                                    }
+                                                </Text>
+                                            </View>
+                                        </View>
+                                        <Text style={{ fontSize: 11, fontFamily: 'Nunito_400Regular', color: '#9CA3AF' }}>
+                                            {formatTimeAgo(item.appliedAt)}
+                                        </Text>
+                                        {item.palLatitude && item.palLongitude && selectedPendingErrand?.latitude && selectedPendingErrand?.longitude && (
+                                            <Text style={styles.metaText}>
+                                                📍 {calculateDistance(selectedPendingErrand?.latitude, selectedPendingErrand?.longitude, item.palLatitude, item.palLongitude)}
+                                            </Text>
+                                        )}
+                                    </View>
+
+                                    {/* Message */}
+                                    {item.message ? (
+                                        <View style={{
+                                            backgroundColor: '#F9FAFB', borderRadius: 8,
+                                            padding: 10, marginBottom: 12,
+                                        }}>
+                                            <Text style={{ fontSize: 12, fontFamily: 'Nunito_500Medium', color: '#374151', lineHeight: 18 }}>
+                                                "{item.message}"
+                                            </Text>
+                                        </View>
+                                    ) : null}
+
+                                    {/* Action buttons */}
+                                    <View style={{ flexDirection: 'row', gap: 10 }}>
+                                        <TouchableOpacity
+                                            style={{
+                                                flex: 1, borderWidth: 1, borderColor: '#2563EB',
+                                                borderRadius: 12, paddingVertical: 10, alignItems: 'center',
+                                            }}
+                                            onPress={() => {
+                                                // TODO: View pal profile detail
+                                                Alert.alert('Coming Soon', 'Full pal profile view coming soon!');
+                                            }}
+                                        >
+                                            <Text style={{ fontSize: 13, fontFamily: 'Nunito_600SemiBold', color: '#2563EB' }}>
+                                                View Profile
+                                            </Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            style={{
+                                                flex: 1, backgroundColor: '#10B981',
+                                                borderRadius: 12, paddingVertical: 10, alignItems: 'center',
+                                            }}
+                                            onPress={() => handleAcceptPalApplication(item.applicationId)}
+                                            disabled={acceptingPal === item.applicationId}
+                                        >
+                                            {acceptingPal === item.applicationId ? (
+                                                <ActivityIndicator color="white" size="small" />
+                                            ) : (
+                                                <Text style={{ fontSize: 13, fontFamily: 'Nunito_700Bold', color: 'white' }}>
+                                                    Accept ✓
+                                                </Text>
+                                            )}
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                            )}
+                        />
+                    )}
+                </View>
+            </Modal>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: COLORS.background },
+
+    backButton: { padding: 10, width: 52 },
 
     header: {
         backgroundColor: COLORS.background, paddingTop: 56, paddingBottom: 16,
@@ -994,8 +1593,8 @@ const styles = StyleSheet.create({
         fontSize: 10, fontFamily: 'Nunito_600SemiBold', color: 'white'
     },
 
-    statusBadge: { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3 },
-    statusBadgeText: { fontSize: 10, fontFamily: 'Nunito_700Bold', color: 'white' },
+    statusBadge: { flexDirection: 'row', },
+    statusBadgeText: { fontSize: 13, fontFamily: 'Nunito_400Regular', color: COLORS.black },
 
     // Filter modal
     filterContainer: { flex: 1, backgroundColor: COLORS.background },
@@ -1044,48 +1643,46 @@ const styles = StyleSheet.create({
     dateInputLabel: { fontSize: 8, color: COLORS.header },
     dateInputText: { fontSize: 12, color: COLORS.header },
 
-    presetPreview: {
-        backgroundColor: '#EFF6FF', borderRadius: 12,
-        padding: 16, marginTop: 8,
+    presetPreview: { flexDirection: 'row', justifyContent: "space-between", alignItems: 'flex-end',  marginTop: 10,
+        /*backgroundColor: '#EFF6FF', borderRadius: 12,
+        padding: 16,*/
     },
     presetPreviewText: {
-        fontSize: 13, fontFamily: 'Nunito_600SemiBold',
-        color: '#2563EB', textAlign: 'center',
+        fontSize: 12, fontFamily: 'Nunito_600SemiBold',
+        color: COLORS.black, textAlign: 'center',
     },
 
     // Detail modal
-    detailContainer: { flex: 1, backgroundColor: '#F9FAFB' },
+    detailContainer: { flex: 1, backgroundColor: COLORS.background },
     detailHeader: {
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        paddingTop: 56, paddingBottom: 16, paddingHorizontal: 20,
-        backgroundColor: 'white', borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
+        paddingTop: Platform.OS === 'ios' ? 50 : 0
     },
-    backBtn: { fontSize: 18, fontFamily: 'Nunito_600SemiBold', color: '#2563EB' },
-    detailHeaderTitle: { fontSize: 16, fontFamily: 'Nunito_700Bold', color: '#111827' },
+    detailHeaderTitle: { fontSize: 18, fontFamily: 'Nunito_800ExtraBold', color: COLORS.header, marginLeft: 20 },
 
     palCard: {
-        backgroundColor: 'white', borderRadius: 16, padding: 16,
-        flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20, elevation: 2,
+        // backgroundColor: 'white', borderRadius: 16, padding: 16,
+        flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12,
     },
     palCardAvatar: {
-        width: 48, height: 48, borderRadius: 24, backgroundColor: '#2563EB',
+        width: 60, height: 60, borderRadius: 30, backgroundColor: '#2563EB',
+        borderWidth: 2, borderColor: COLORS.primary,
         alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
     },
-    palAvatarImage: { width: 48, height: 48, borderRadius: 24 },
+    palAvatarImage: { width: 60, height: 60, borderRadius: 30 },
     palAvatarInitial: { fontSize: 20, fontFamily: 'Nunito_700Bold', color: 'white' },
-    palName: { fontSize: 15, fontFamily: 'Nunito_700Bold', color: '#111827' },
+    palName: { fontSize: 11, fontFamily: 'Nunito_600SemiBold', color: COLORS.black },
     palLabel: { fontSize: 12, fontFamily: 'Nunito_500Medium', color: '#6B7280' },
 
     sectionTitle: {
-        fontSize: 13, fontFamily: 'Nunito_700Bold', color: '#374151',
-        textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8, marginTop: 4,
+        fontSize: 13, fontFamily: 'Nunito_700Bold', color: COLORS.black,
+        letterSpacing: 0, textDecorationLine: 'underline', marginBottom: 8, marginTop: 20,
     },
     detailCard: {
         backgroundColor: 'white', borderRadius: 16, padding: 16,
         marginBottom: 16, gap: 10, elevation: 1,
     },
     detailRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
-    detailIcon: { fontSize: 14, marginTop: 1 },
+    detailIcon: { width: 24, height: 24, },
     detailText: {
         fontSize: 13, fontFamily: 'Nunito_500Medium', color: '#374151',
         flex: 1, lineHeight: 20,
@@ -1122,5 +1719,30 @@ const styles = StyleSheet.create({
     reportBtnText: {
         fontSize: 13, fontFamily: 'Nunito_600SemiBold',
         color: '#EF4444', textDecorationLine: 'underline',
+    },
+
+    // Pal Application
+    palAppHeader: {
+        paddingTop: Platform.OS === 'ios' ? 50 : 0, paddingBottom: 16,
+    },
+    palAppTitle: { fontSize: 18, fontFamily: 'Nunito_800ExtraBold', color: COLORS.header  },
+    palAppSubtitle: { fontSize: 14, fontFamily: 'Nunito_700Bold', color: COLORS.secondary  },
+
+
+    metaText: {
+        fontSize: 10, fontFamily: 'Nunito_500Medium', color: '#6B7280',
+    },
+    applicantCard: {
+        backgroundColor: '#F9FAFB', borderRadius: 12,
+        padding: 12, marginBottom: 8,
+    },
+    applicantAvatar: {
+        width: 40, height: 40, borderRadius: 20,
+        backgroundColor: '#10B981', alignItems: 'center', justifyContent: 'center',
+        overflow: 'hidden',
+    },
+    applicantMessage: {
+        backgroundColor: 'white', borderRadius: 8,
+        padding: 8, marginBottom: 4,
     },
 });
